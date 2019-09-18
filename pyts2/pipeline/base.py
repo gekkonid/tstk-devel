@@ -7,6 +7,7 @@ from collections import defaultdict
 from os import path as op
 from sys import stderr, stdout, stdin
 import warnings
+import traceback
 import csv
 import re
 
@@ -42,19 +43,28 @@ class TSPipeline(object):
             try:
                 file = step.process_file(file)
             except Exception as exc:
-                warnings.warn(f"pipeline failed at {step.__class__.__name__}: {str(exc)}")
-                file.report["Errors"] = str(exc)
-                return file
+                tb = traceback.format_exc()
+                warnings.warn(f"pipeline failed at {step.__class__.__name__}: {tb}")
+                if file is not None:
+                    file.report["Errors"] = str(exc)
+                    break
+        if file is not None:
+            self.report.record(file.instant, **file.report)
         return file
 
     def process(self, input_stream, ncpus=1, progress=True):
         from concurrent.futures import as_completed, ThreadPoolExecutor, ProcessPoolExecutor
         if ncpus > 1:
-            executor = ProcessPoolExecutor(max_workers=ncpus)
+            with ProcessPoolExecutor(max_workers=ncpus):
+                for file in tqdm(executor.map(self.process_file, input_stream), unit=" files"):
+                    if file is None:
+                        continue
+                    self.report.record(file.instant, **file.report)
+                    self.n += 1
+                    yield file
         else:
-            executor = ThreadPoolExecutor()
-        with executor:
-            for file in tqdm(executor.map(self.process_file, input_stream), unit=" files"):
+            for file in tqdm(input_stream, unit=" files"):
+                file = self.process_file(file)
                 if file is None:
                     continue
                 self.report.record(file.instant, **file.report)
@@ -79,6 +89,8 @@ class TSPipeline(object):
 
     def finish(self):
         for step in self.steps:
+            if hasattr(step, "report") and isinstance(step.report, ResultRecorder):
+                self.report.merge(step.report)
             step.finish()
 
 
@@ -93,6 +105,13 @@ class ResultRecorder(object):
             if key not in self.fields:
                 self.fields.append(key)
             self.data[repr(instant)].update(kwargs.copy())
+
+    def merge(self, reporter):
+        for inst, data in reporter.data.items():
+            for key in data:
+                if key not in self.fields:
+                    self.fields.append(key)
+            self.data[inst].update(data)
 
     def save(self, outpath, delim="\t"):
         if len(self.data) < 1:

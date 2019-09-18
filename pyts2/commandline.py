@@ -215,5 +215,78 @@ def verify(ephemeral, resource, informat, force_delete, rm_script):
                     os.unlink(f)
 
 
+@tstk_main.command()
+@click.option("--informat", "-F", default=None,
+              help="Input image format (use extension as lower case for raw formats)")
+@click.option("--dims", "-d", type=str, required=True,
+              help="Dimension of super-image, in units of sub-images, ROWSxCOLS")
+@click.option("--order", "-O", default="colsright",
+              type=Choice(["colsright", "colsleft", "rowsdown", "rowsup"]),
+              help="Order in which images are taken (cols or rows, left orright)")
+@click.option("--audit-output", "-a", type=Path(writable=True), default=None,
+              help="Audit log output TSV. If given, input images will be audited, with the log saved here.")
+@click.option("--composite-size", "-s", type=str, default="200x300",
+              help="Size of each sub-image in a composite, ROWSxCOLS")
+@click.option("--composite-format", "-f", type=str, default="jpg",
+              help="File format of composite output images")
+@click.option("--composite-output", "-o", type=str, default=None,
+              help="Output timestream for composite images")
+@click.option("--composite-bundling", "-b", type=Choice(TimeStream.bundle_levels), default="none",
+              help="Level at which to bundle composite image output")
+@click.option("--composite-centrecrop", "-S", type=float, default=0.5, metavar="PROPORTION",
+              help="Crop centre of each image. takes centre PROPORTION h x w from each image")
+@click.option("--recoded-output", "--ro", type=str, default=None,
+              help="Output timestream for recoded import images")
+@click.option("--recoded-format", "--rf", type=str, default=None,
+              help="File format of  images")
+@click.option("--recoded-bundling", "--rb", type=Choice(TimeStream.bundle_levels), default="none",
+              help="Level at which to bundle recoded images")
+@click.argument("input")
+def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
+             composite_format, composite_size, composite_output, composite_centrecrop,
+             recoded_output, recoded_format, recoded_bundling):
+
+    from pyts2.pipeline.gigavision import CompositeImageMakerStep
+
+    ints = TimeStream(input, format=informat)
+
+    composite_ts = TimeStream(composite_output, bundle_level=composite_bundling)
+    steps = [
+        DecodeImageFileStep(),
+    ]
+
+    if audit_output is not None:
+        audit_pipe = TSPipeline(
+            FileStatsStep(),
+            ImageMeanColourStep(),
+            ScanQRCodesStep(),
+        )
+        steps.append(audit_pipe)
+
+    if recoded_output is not None:
+        recoded_ts = TimeStream(recoded_output, bundle_level=recoded_bundling)
+        recoded_pipe = TSPipeline(
+            EncodeImageFileStep(format=recoded_format),
+            WriteFileStep(recoded_ts),
+        )
+        steps.append(recoded_pipe)
+
+
+    steps.append(
+        TSPipeline(CompositeImageMakerStep(
+            dims, composite_ts, subimgres=composite_size, order=order,
+            output_format=composite_format, centrecrop=composite_centrecrop,
+        ))
+    )
+    pipe = TSPipeline(*steps)
+
+    try:
+        for image in pipe.process(ints):
+            pass
+    finally:
+        pipe.finish()
+        if audit_output is not None:
+            pipe.report.save(audit_output)
+
 if __name__ == "__main__":
     tstk_main()
