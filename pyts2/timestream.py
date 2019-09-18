@@ -110,6 +110,8 @@ class TimestreamFile(object):
     def content(self):
         if self._content is None and self.fetcher is not None:
             self._content = self.fetcher.get()
+        if self._content is None:
+            self._content = b''
         return self._content
 
     def clear_content(self):
@@ -231,7 +233,7 @@ class TimeStream(object):
                                                 fetcher=ZipContentFetcher(path, entry.filename))
             elif tarfile.is_tarfile(path):
                 self.sorted = False
-                warnings.warn("Extracting files from a tar file. Sorted iteration is not guaranteed")
+                #warnings.warn("Extracting files from a tar file. Sorted iteration is not guaranteed")
                 with tarfile.TarFile(path) as tar:
                     for entry in tar:
                         if not entry.isfile():
@@ -246,7 +248,7 @@ class TimeStream(object):
                         else:
                             self._files[op.basename(entry.name)] = TarContentFetcher(path, entry.name)
                             yield TimestreamFile(filename=entry.name,
-                                                    fetcher=TarContentFetcher(path, entry.name))
+                                                 fetcher=TarContentFetcher(path, entry.name))
             else: raise ValueError(f"'{path}' appears not to be an archive")
 
         def is_archive(path):

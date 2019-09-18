@@ -12,8 +12,7 @@ import datetime as dt
 import os.path as op
 import re
 import io
-import sys
-
+import sys 
 import imageio
 import numpy as np
 import rawpy
@@ -182,9 +181,19 @@ class TimestreamImage(TimestreamFile):
     def pixels(self):
         return self._pixels
 
+    @property
+    def content(self):
+        return super().content
+
+    @content.setter
+    def content(self, value):
+        self._pixels = None  # invalidate pixels
+        self._content = value
+
     @pixels.setter
     def pixels(self, value):
         self._pixels = ski.img_as_float(value)
+        self._content = None  # invalidate content, as we've updated the pixels
 
     @property
     def pil(self):
@@ -203,6 +212,7 @@ class TimestreamImage(TimestreamFile):
             "filename": file.filename,
             "fetcher": file.fetcher,
             "report": file.report,
+            "content": file.content,
         }
         params.update(kwargs)
         return cls(**params)
