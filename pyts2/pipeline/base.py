@@ -55,7 +55,7 @@ class TSPipeline(object):
     def process(self, input_stream, ncpus=1, progress=True):
         from concurrent.futures import as_completed, ThreadPoolExecutor, ProcessPoolExecutor
         if ncpus > 1:
-            with ProcessPoolExecutor(max_workers=ncpus):
+            with ProcessPoolExecutor(max_workers=ncpus) as executor:
                 for file in tqdm(executor.map(self.process_file, input_stream), unit=" files"):
                     if file is None:
                         continue
