@@ -43,12 +43,21 @@ def path_is_timestream_file(path, extensions=None):
     """
     if isinstance(extensions, str):
         extensions = [extensions, ]
+    extensions = set(extensions)
+    if "tif" in extensions:
+        extensions.add("tiff")
+    if "tiff" in extensions:
+        extensions.add("tif")
+    if "jpg" in extensions:
+        extensions.add("jpeg")
+    if "jpeg" in extensions:
+        extensions.add("jpg")
     try:
         m = TS_DATETIME_RE.search(path)
         if m is None:
             return False
         if extensions is not None:
-            return any([path.lower().endswith(ext) for ext in extensions])
+            return any([path.lower().endswith(f".{ext}") for ext in extensions])
         return True
     except ValueError:
         return False
@@ -196,7 +205,11 @@ class TimeStream(object):
                 if self.name.lower().endswith(ext):
                     self.name = self.name[:-len(ext)]
         if format is not None:
-            format = format.lstrip(".")
+            format = format.lstrip(".").lower()
+            if format == "tiff":
+                format = "tif"
+            if format == "jpeg":
+                format = "jpg"
         self.format = format
         self.path = path
 

@@ -39,6 +39,7 @@ class CompositeImageMakerStep(PipelineStep):
             )
             composite_img = self.image_encoder.process_file(composite_img)
             self.output.write(composite_img)
+            return composite_img
 
     def process_file(self, file):
         if not hasattr(file, "pixels"):
@@ -46,7 +47,7 @@ class CompositeImageMakerStep(PipelineStep):
 
         composite_img = None
         if self.current_datetime != file.instant.datetime:
-            self.write_current()
+            composite_img = self.write_current()
             self.current_datetime = file.instant.datetime
             self.current_pixels = np.zeros(
                     (self.superdim[0]*self.subimgres[0],

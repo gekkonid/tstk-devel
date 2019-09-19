@@ -152,7 +152,7 @@ class PipelineStep(object):
 
 
 class ResultRecorderStep(PipelineStep):
-    
+
     def __init__(self, output_file):
         self.n = 0
         self.output_file = output_file
