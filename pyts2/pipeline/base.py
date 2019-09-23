@@ -3,15 +3,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from collections import defaultdict
-from os import path as op
-from sys import stderr, stdout, stdin
-import warnings
-import traceback
-import csv
-import re
 
 from tqdm import tqdm
+
+import copy
+from collections import defaultdict
+import csv
+from os import path as op
+import re
+from sys import stderr, stdout, stdin
+import traceback
+import warnings
 
 csv.register_dialect('tsv',
                      delimiter='\t',
@@ -44,7 +46,7 @@ class TSPipeline(object):
                 file = step.process_file(file)
             except Exception as exc:
                 tb = traceback.format_exc()
-                warnings.warn(f"pipeline failed at {step.__class__.__name__}: {tb}")
+                print(f"\npipeline failed at {step.__class__.__name__}: {tb}", file=stderr)
                 if file is not None:
                     file.report["Errors"] = str(exc)
                     break
@@ -172,6 +174,17 @@ class ResultRecorderStep(PipelineStep):
 class CopyStep(PipelineStep):
     """Does Nothing"""
     pass
+
+
+class TeeStep(PipelineStep):
+    """Execute another step or pipeline with no side effects on each `file`"""
+
+    def __init__(self, other_pipeline):
+        self.pipe = other_pipeline
+
+    def process_file(self, file):
+        self.pipe.process_file(copy.deepcopy(file))
+        return file
 
 
 class WriteFileStep(PipelineStep):

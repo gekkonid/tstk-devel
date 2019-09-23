@@ -12,22 +12,30 @@ from .imageio import *
 from pyts2.utils import *
 
 import re
+import shlex
 
 
-class CompositeImageMakerStep(PipelineStep):
+class GigavisionMosaicStep(PipelineStep):
     """Class to piece together composite images"""
-    def __init__(self, dims, output, subimgres="200x300", order="colsright",
-                 output_format="jpg", centrecrop=None):
+    def __init__(self, dims, output, subimgres="200x300", order="colsright", output_format="jpg",
+                 centrecrop=None, rm_script=None, mv_destination=None):
         self.superdim = XbyY2XY(dims)
         self.subimgres = XbyY2XY(subimgres)
         self.order = order
-        self.current_pixels = None
-        self.current_datetime = None
         self.output = output
         self.output_format = output_format
         self.image_encoder = EncodeImageFileStep(output_format)
         self.centrecrop = centrecrop
-
+        self.current_pixels = None
+        self.current_datetime = None
+        self.current_image_files = list()
+        self.rm_script = rm_script
+        self.mv_destination = mv_destination
+        self.rm_command = "rm -vf"
+        if self.rm_script is not None and self.mv_destination is not None:
+            with open(self.rm_script, "w") as fh:
+                print("mkdir -p", self.mv_destination, file=fh)
+            self.rm_command = f"mv -nvt {self.mv_destination}"
 
     def write_current(self):
         if self.current_datetime is not None:
@@ -39,11 +47,19 @@ class CompositeImageMakerStep(PipelineStep):
             )
             composite_img = self.image_encoder.process_file(composite_img)
             self.output.write(composite_img)
+            if self.rm_script is not None:
+                with open(self.rm_script, "a") as fh:
+                    for path in self.current_image_files:
+                        print(f"{self.rm_command} {shlex.quote(path)}", file=fh)
+            self.current_image_files = list()
             return composite_img
 
     def process_file(self, file):
         if not hasattr(file, "pixels"):
             file = DecodeImageFileStep().process_file(file)
+
+        if isinstance(file.fetcher, FileContentFetcher):
+            self.current_image_files.append(str(file.fetcher.path))
 
         composite_img = None
         if self.current_datetime != file.instant.datetime:

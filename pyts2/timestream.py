@@ -64,21 +64,21 @@ def path_is_timestream_file(path, extensions=None):
 
 
 class ZipContentFetcher(object):
-    def __init__(self, zipfile, pathinzip):
-        self.zipfile = zipfile
+    def __init__(self, archivepath, pathinzip):
+        self.archivepath = archivepath
         self.pathinzip = pathinzip
 
     def get(self):
-        with zipfile.ZipFile(str(self.zipfile)) as zfh:
+        with zipfile.ZipFile(str(self.archivepath)) as zfh:
             return zfh.read(self.pathinzip)
 
 class TarContentFetcher(object):
-    def __init__(self, tarfile, pathintar):
-        self.tarfile = tarfile
+    def __init__(self, archivepath, pathintar):
+        self.archivepath = archivepath
         self.pathintar = pathintar
 
     def get(self):
-        with tarfile.TarFile(self.tarfile) as tfh:
+        with tarfile.TarFile(self.archivepath) as tfh:
             return tfh.extractfile(self.pathintar).read()
 
 
@@ -243,7 +243,7 @@ class TimeStream(object):
                             continue
                         self._files[op.basename(entry.filename)] = ZipContentFetcher(path, entry.filename)
                         yield TimestreamFile(filename=entry.filename,
-                                                fetcher=ZipContentFetcher(path, entry.filename))
+                                             fetcher=ZipContentFetcher(path, entry.filename))
             elif tarfile.is_tarfile(path):
                 self.sorted = False
                 #warnings.warn("Extracting files from a tar file. Sorted iteration is not guaranteed")

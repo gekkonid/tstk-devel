@@ -241,20 +241,26 @@ def verify(ephemeral, resource, informat, force_delete, rm_script):
               help="File format of  images")
 @click.option("--recoded-bundling", "--rb", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle recoded images")
+@click.option("--rm-script", "-x", type=Path(writable=True), metavar="FILE",
+              help="Write a script which deletes input files to FILE.")
+@click.option("--mv-destination", type=Path(), metavar="DIR",
+              help="Instead of deleting input files, move files to DIR. (see --rm-script)")
 @click.argument("input")
 def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
              composite_format, composite_size, composite_output, composite_centrecrop,
-             recoded_output, recoded_format, recoded_bundling):
+             recoded_output, recoded_format, recoded_bundling, rm_script, mv_destination):
 
-    from pyts2.pipeline.gigavision import CompositeImageMakerStep
+    from pyts2.pipeline.gigavision import GigavisionMosaicStep
 
     ints = TimeStream(input, format=informat)
 
     composite_ts = TimeStream(composite_output, bundle_level=composite_bundling)
-    steps = [
-        DecodeImageFileStep(),
-    ]
+    steps = []
 
+    # decode image
+    steps.append(DecodeImageFileStep())
+
+    # run audit pipeline
     if audit_output is not None:
         audit_pipe = TSPipeline(
             FileStatsStep(),
@@ -263,23 +269,29 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
         )
         steps.append(audit_pipe)
 
+    # run recode pipeline
     if recoded_output is not None:
         recoded_ts = TimeStream(recoded_output, bundle_level=recoded_bundling)
         recoded_pipe = TSPipeline(
             EncodeImageFileStep(format=recoded_format),
             WriteFileStep(recoded_ts),
         )
-        steps.append(recoded_pipe)
+        steps.append(TeeStep(recoded_pipe))
 
 
+    # do mosaicing
     steps.append(
-        TSPipeline(CompositeImageMakerStep(
+        TSPipeline(GigavisionMosaicStep(
             dims, composite_ts, subimgres=composite_size, order=order,
             output_format=composite_format, centrecrop=composite_centrecrop,
+            rm_script=rm_script, mv_destination=mv_destination,
         ))
     )
+
+    # assemble total pipeline
     pipe = TSPipeline(*steps)
 
+    # run pipeline
     try:
         for image in pipe.process(ints):
             pass

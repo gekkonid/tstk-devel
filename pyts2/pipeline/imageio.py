@@ -12,7 +12,7 @@ import datetime as dt
 import os.path as op
 import re
 import io
-import sys 
+import sys
 import imageio
 import numpy as np
 import rawpy

@@ -10,6 +10,7 @@ from .base import (
     WriteFileStep,
     ResultRecorderStep,
     FileStatsStep,
+    TeeStep,
 )
 from .audit import (
     ImageMeanColourStep,
@@ -25,3 +26,4 @@ from .imageio import (
     DecodeImageFileStep,
     EncodeImageFileStep,
 )
+from .rmscript import WriteRmScriptStep
