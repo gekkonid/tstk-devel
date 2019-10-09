@@ -9,6 +9,7 @@ import os
 import os.path as op
 import re
 import tarfile
+import traceback
 import warnings
 import zipfile
 from queue import Queue
@@ -41,6 +42,8 @@ def path_is_timestream_file(path, extensions=None):
     >>> path_is_timestream_file("not-a-timestream.jpg")
     False
     """
+    if extensions is None:
+        extensions = []
     if isinstance(extensions, str):
         extensions = [extensions, ]
     extensions = set(extensions)
@@ -56,7 +59,7 @@ def path_is_timestream_file(path, extensions=None):
         m = TS_DATETIME_RE.search(path)
         if m is None:
             return False
-        if extensions is not None:
+        if extensions:
             return any([path.lower().endswith(f".{ext}") for ext in extensions])
         return True
     except ValueError:
@@ -293,7 +296,7 @@ class TimeStream(object):
                         self._files[op.basename(path)] = FileContentFetcher(path)
                         yield TimestreamFile.from_path(path)
                 except Exception as exc:
-                    warnings.warn(f"{exc.__class__.__name__}: {str(exc)} at '{path}'")
+                    print(f"\n{exc.__class__.__name__}: {str(exc)} at '{path}'\n", file=stderr)
 
 
     def _timestream_path(self, file):
