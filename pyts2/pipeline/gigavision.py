@@ -71,7 +71,11 @@ class GigavisionMosaicStep(PipelineStep):
                     dtype=np.float32
             )
 
-        row, col = index2rowcol(int(file.instant.index)-1, self.superdim[0], self.superdim[1], self.order)
+        try:
+            row, col = index2rowcol(int(file.instant.index)-1, self.superdim[0], self.superdim[1], self.order)
+        except (TypeError, ValueError) as exc:
+            print(str(exc), file.filename, file=stderr)
+            return None
         top = row * self.subimgres[0]
         bottom = top + self.subimgres[0]
         left = col * self.subimgres[1]
