@@ -87,10 +87,10 @@ class TarContentFetcher(object):
 
 class FileContentFetcher(object):
     def __init__(self, path):
-        self.path = Path(path)
+        self.pathondisk = Path(path)
 
     def get(self):
-        with open(self.path, "rb") as fh:
+        with open(self.pathondisk, "rb") as fh:
             return fh.read()
 
 
@@ -275,7 +275,7 @@ class TimeStream(object):
             if is_archive(self.path):
                 yield from walk_archive(self.path)
         except Exception as exc:
-            warnings.warn(f"{exc.__class__.__name__}: {str(exc)} at '{self.path}'")
+            print(f"\n{exc.__class__.__name__}: {str(exc)} at '{path}'\n", file=stderr)
 
         for root, dirs, files in os.walk(self.path):
             # ensure sorted iteration
