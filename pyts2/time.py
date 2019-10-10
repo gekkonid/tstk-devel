@@ -12,7 +12,7 @@ import iso8601
 
 
 TS_DATEFMT = "%Y_%m_%d_%H_%M_%S"
-TS_DATETIME_RE = re.compile(r"(\d{4}_[0-1]\d_[0-3]\d_[0-2]\d_[0-5]\d_[0-5]\d)(_\d+)?(_\w+)?")
+TS_DATETIME_RE = re.compile(r"(\d{4}_[0-1]\d_[0-3]\d_[0-2]\d_[0-5]\d_[0-5]\d)(_\w+)?")
 
 
 def extract_datetime(path):
@@ -61,54 +61,50 @@ class TSInstant(object):
     2017_01_02_03_04_05_00_0011
     """
 
-    def __init__(self, datetime, subsecond=0, index=None):
+    def __init__(self, datetime, index=None):
         self.datetime = parse_date(datetime)
-        if subsecond is None:
-            subsecond = 0
-        self.subsecond = int(subsecond)
         self.index = index
 
     def __str__(self):
-        idx = "" if self.index is None else f"_{self.index}"
-        subsec = f"_{self.subsecond:02d}"
-        return f"{self.datetime.strftime('%Y_%m_%d_%H_%M_%S')}{subsec}{idx}"
+        idx = f"_{self.index}" if self.index is not None else ""
+        return f"{self.datetime.strftime('%Y_%m_%d_%H_%M_%S')}{idx}"
 
 
     def __eq__(self, other):
-        return (self.datetime, self.subsecond, self.index) == \
-               (other.datetime, other.subsecond, other.index)
+        return (self.datetime, self.index) == \
+               (other.datetime, other.index)
 
     def __lt__(self, other):
         if self.index is not None and other.index is not None:
-            return (self.datetime, self.subsecond, self.index) < \
-                (other.datetime, other.subsecond, other.index)
+            return (self.datetime, self.index) < \
+                (other.datetime, other.index)
         else:
-            return (self.datetime, self.subsecond) < \
-                (other.datetime, other.subsecond)
+            return (self.datetime,) < \
+                (other.datetime,)
 
     def __le__(self, other):
         if self.index is not None and other.index is not None:
-            return (self.datetime, self.subsecond, self.index) <= \
-                (other.datetime, other.subsecond, other.index)
+            return (self.datetime, self.index) <= \
+                (other.datetime, other.index)
         else:
-            return (self.datetime, self.subsecond) <= \
-                (other.datetime, other.subsecond)
+            return (self.datetime,) <= \
+                (other.datetime,)
 
     def __gt__(self, other):
         if self.index is not None and other.index is not None:
-            return (self.datetime, self.subsecond, self.index) > \
-                (other.datetime, other.subsecond, other.index)
+            return (self.datetime, self.index) > \
+                (other.datetime, other.index)
         else:
-            return (self.datetime, self.subsecond) > \
-                (other.datetime, other.subsecond)
+            return (self.datetime,) > \
+                (other.datetime,)
 
     def __ge__(self, other):
         if self.index is not None and other.index is not None:
-            return (self.datetime, self.subsecond, self.index) >= \
-                (other.datetime, other.subsecond, other.index)
+            return (self.datetime, self.index) >= \
+                (other.datetime, other.index)
         else:
-            return (self.datetime, self.subsecond) >= \
-                (other.datetime, other.subsecond)
+            return (self.datetime,) >= \
+                (other.datetime,)
 
     def __hash__(self):
         return hash(str(self))
@@ -134,19 +130,17 @@ class TSInstant(object):
         if m is None:
             raise ValueError("path '" + path + "' doesn't contain a timestream date")
 
-        dt, subsec, index = m.groups()
+        dt, index = m.groups()
 
         datetime = parse_date(dt)
 
-        if subsec is not None:
-            try:
-                subsec = int(subsec.lstrip("_"))
-            except ValueError:
-                subsec = 0
-
         if index is not None:
+            if index.startswith("_00"):
+                index = index[3:]
             index = index.lstrip("_")
-        return TSInstant(datetime, subsec, index)
+            if index == "":
+                index=None
+        return TSInstant(datetime, index)
 
 def parse_partial_date(datestr, max=False):
     m = re.search(r"_?(?P<Y>\d\d\d\d)(?:_(?P<m>\d\d)(?:_(?P<d>\d\d))?(?:_(?P<H>\d\d))?(?:_(?P<M>\d\d))?(?:_(?P<S>\d\d))?)?",
