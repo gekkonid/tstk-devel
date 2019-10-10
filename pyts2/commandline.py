@@ -1,4 +1,5 @@
-# Copyright (c) 2018 Kevin Murray <kdmfoss@gmail.com>
+# Copyright (c) 2018-2019 Kevin Murray <foss@kdmurray.id.au>
+
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -102,7 +103,7 @@ def downsize(input, output, ncpus, informat, outformat, size, bundle, mode):
         EncodeImageFileStep(format=outformat),
     )
     ints = TimeStream(input, format=informat)
-    outts = TimeStream(output, format=outformat, bundle_level=bundle)
+    outts = TimeStream(output, format=outformat, bundle_level=bundle, add_subsec_field=True)
     try:
         pipe.process_to(ints, outts, ncpus=ncpus)
     finally:
@@ -111,7 +112,7 @@ def downsize(input, output, ncpus, informat, outformat, size, bundle, mode):
 
 
 ####################################################################################################
-#                                              RESIZE                                              #
+#                                              INGEST                                              #
 ####################################################################################################
 @tstk_main.command()
 @click.argument("input", type=Path(readable=True, exists=True))
@@ -151,7 +152,7 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
 
 
     if downsized_output is not None:
-        downsized_ts = TimeStream(downsized_output, bundle_level=downsized_bundle)
+        downsized_ts = TimeStream(downsized_output, bundle_level=downsized_bundle, add_subsec_field=True)
         downsize_pipeline = TSPipeline(
             DecodeImageFileStep(),
             ResizeImageStep(geom=downsized_size),
@@ -254,7 +255,7 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
 
     ints = TimeStream(input, format=informat)
 
-    composite_ts = TimeStream(composite_output, bundle_level=composite_bundling)
+    composite_ts = TimeStream(composite_output, bundle_level=composite_bundling, add_subsec_field=True)
     steps = []
 
     # decode image

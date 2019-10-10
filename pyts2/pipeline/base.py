@@ -42,8 +42,11 @@ class TSPipeline(object):
         # This should mirror PipelineStep, so an entire pipeline can function
         # as a pipeline step
         for step in self.steps:
+            file.report["Errors"] = None
             try:
                 file = step.process_file(file)
+            except SkipImage:
+                return None
             except Exception as exc:
                 tb = traceback.format_exc()
                 print(f"\npipeline failed at {step.__class__.__name__}: {tb}", file=stderr)

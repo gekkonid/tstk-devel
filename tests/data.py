@@ -19,7 +19,6 @@ SMALL_TIMESTREAMS = dict(
 
 GVLIKE_TIMESTREAM = dict(
     expect_datetime = dt.datetime(2001, 2, 1,  9, 14, 15),
-    expect_subsecond = 0,
     expect_indices = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"],
     expect_pixels = np.array([[255,255]], dtype="u1"),
 )

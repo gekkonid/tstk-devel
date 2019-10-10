@@ -20,7 +20,7 @@ def test_read(data):
         data("timestreams/zipball-day"),
     ]
 
-    expect_insts = [TSInstant(t, subsecond=0, index=None)
+    expect_insts = [TSInstant(t, index=None)
                     for t in SMALL_TIMESTREAMS["expect_times"]]
     for timestream in timestreams:
         stream = TimeStream(timestream)
@@ -36,7 +36,6 @@ def test_read(data):
 def test_gvlike(data):
     for i, file in enumerate(TimeStream(data("timestreams/gvlike"))):
         expect_inst = TSInstant(GVLIKE_TIMESTREAM["expect_datetime"],
-                                GVLIKE_TIMESTREAM["expect_subsecond"],
                                 GVLIKE_TIMESTREAM["expect_indices"][i])
         assert file.instant == expect_inst
 
@@ -44,8 +43,7 @@ def test_gvlike(data):
 def test_zipout(tmpdir, data):
     def check_output_ok(outpath):
         for i, file in enumerate(TimeStream(outpath)):
-            expect_inst = TSInstant(SMALL_TIMESTREAMS["expect_times"][i],
-                                    subsecond=0, index=None)
+            expect_inst = TSInstant(SMALL_TIMESTREAMS["expect_times"][i], index=None)
             assert file.instant == expect_inst
 
     outputs = {
@@ -75,16 +73,16 @@ def test_zipout(tmpdir, data):
             "output/2001/2001_02/2001_02_01/output_2001_02_01_10.tif.zip",
         ],
         "none":  [
-            "output/2001/2001_02/2001_02_02/2001_02_02_09/output_2001_02_02_09_14_15_00.tif",
-            "output/2001/2001_02/2001_02_02/2001_02_02_13/output_2001_02_02_13_14_15_00.tif",
-            "output/2001/2001_02/2001_02_02/2001_02_02_10/output_2001_02_02_10_14_15_00.tif",
-            "output/2001/2001_02/2001_02_02/2001_02_02_12/output_2001_02_02_12_14_15_00.tif",
-            "output/2001/2001_02/2001_02_02/2001_02_02_11/output_2001_02_02_11_14_15_00.tif",
-            "output/2001/2001_02/2001_02_01/2001_02_01_13/output_2001_02_01_13_14_15_00.tif",
-            "output/2001/2001_02/2001_02_01/2001_02_01_11/output_2001_02_01_11_14_15_00.tif",
-            "output/2001/2001_02/2001_02_01/2001_02_01_12/output_2001_02_01_12_14_15_00.tif",
-            "output/2001/2001_02/2001_02_01/2001_02_01_09/output_2001_02_01_09_14_15_00.tif",
-            "output/2001/2001_02/2001_02_01/2001_02_01_10/output_2001_02_01_10_14_15_00.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_09/output_2001_02_02_09_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_13/output_2001_02_02_13_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_10/output_2001_02_02_10_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_12/output_2001_02_02_12_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_11/output_2001_02_02_11_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_13/output_2001_02_01_13_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_11/output_2001_02_01_11_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_12/output_2001_02_01_12_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_09/output_2001_02_01_09_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_10/output_2001_02_01_10_14_15.tif",
         ],
     }
 
@@ -163,3 +161,48 @@ def test_zip_overwrite(data, tmpdir):
     file._content = b"this isn't the correct content"
     with pytest.raises(RuntimeError):
         out_stream.write(file)
+
+
+def test_subsecond_output(tmpdir, data):
+    outputs = {
+        False:  [
+            "output/2001/2001_02/2001_02_02/2001_02_02_09/output_2001_02_02_09_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_13/output_2001_02_02_13_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_10/output_2001_02_02_10_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_12/output_2001_02_02_12_14_15.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_11/output_2001_02_02_11_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_13/output_2001_02_01_13_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_11/output_2001_02_01_11_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_12/output_2001_02_01_12_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_09/output_2001_02_01_09_14_15.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_10/output_2001_02_01_10_14_15.tif",
+        ],
+        True:  [
+            "output/2001/2001_02/2001_02_02/2001_02_02_09/output_2001_02_02_09_14_15_00.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_13/output_2001_02_02_13_14_15_00.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_10/output_2001_02_02_10_14_15_00.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_12/output_2001_02_02_12_14_15_00.tif",
+            "output/2001/2001_02/2001_02_02/2001_02_02_11/output_2001_02_02_11_14_15_00.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_13/output_2001_02_01_13_14_15_00.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_11/output_2001_02_01_11_14_15_00.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_12/output_2001_02_01_12_14_15_00.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_09/output_2001_02_01_09_14_15_00.tif",
+            "output/2001/2001_02/2001_02_01/2001_02_01_10/output_2001_02_01_10_14_15_00.tif",
+        ],
+    }
+
+    for add_subsec, expected_files in outputs.items():
+        subdir = "add_subsec" if add_subsec else "dont_add_subsec"
+        outpath = tmpdir.join(subdir, "output")
+        out = TimeStream(path=outpath, format="tif", name="output", add_subsecond_field=add_subsec)
+        for file in TimeStream(data("timestreams/nested")):
+            out.write(file)
+        out.close()
+
+        for i, file in enumerate(TimeStream(outpath)):
+            expect_inst = TSInstant(SMALL_TIMESTREAMS["expect_times"][i], index=None)
+            assert file.instant == expect_inst
+
+        expect = {str(tmpdir.join(subdir, x)) for x in outputs[add_subsec]}
+        assert set(find_files(tmpdir.join(subdir))) == expect
+
