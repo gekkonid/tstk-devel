@@ -103,7 +103,7 @@ def downsize(input, output, ncpus, informat, outformat, size, bundle, mode):
         EncodeImageFileStep(format=outformat),
     )
     ints = TimeStream(input, format=informat)
-    outts = TimeStream(output, format=outformat, bundle_level=bundle, add_subsec_field=True)
+    outts = TimeStream(output, format=outformat, bundle_level=bundle, add_subsecond_field=True)
     try:
         pipe.process_to(ints, outts, ncpus=ncpus)
     finally:
@@ -152,7 +152,7 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
 
 
     if downsized_output is not None:
-        downsized_ts = TimeStream(downsized_output, bundle_level=downsized_bundle, add_subsec_field=True)
+        downsized_ts = TimeStream(downsized_output, bundle_level=downsized_bundle, add_subsecond_field=True)
         downsize_pipeline = TSPipeline(
             DecodeImageFileStep(),
             ResizeImageStep(geom=downsized_size),
@@ -255,7 +255,7 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
 
     ints = TimeStream(input, format=informat)
 
-    composite_ts = TimeStream(composite_output, bundle_level=composite_bundling, add_subsec_field=True)
+    composite_ts = TimeStream(composite_output, bundle_level=composite_bundling, add_subsecond_field=True)
     steps = []
 
     # decode image
