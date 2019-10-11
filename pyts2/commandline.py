@@ -196,7 +196,7 @@ def verify(ephemeral, resource, informat, force_delete, rm_script):
                 if image.md5sum == res_img.md5sum:
                     if not isinstance(image.fetcher, FileContentFetcher):
                         click.echo(f"WARNING: can't delete {image.filename} as it is bundled", err=True)
-                    to_delete.append(image.fetcher.path)
+                    to_delete.append(image.fetcher.pathondisk)
                 res_img.clear_content()
             except KeyError:
                 continue

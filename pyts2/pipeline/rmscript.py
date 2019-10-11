@@ -20,6 +20,6 @@ class WriteRmScriptStep(PipelineStep):
             warnings.warn(f"can't delete {file.filename} as it is bundled")
             return file
         with open(self.scriptfile, "a") as fh:
-             print(f"{self.command} {shlex.quote(str(file.fetcher.path))}", file=fh)
+             print(f"{self.command} {shlex.quote(str(file.fetcher.pathondisk))}", file=fh)
         return file
 

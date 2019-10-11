@@ -3,6 +3,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import numpy as np
+import rawpy
+import cv2
+import imageio
+import skimage as ski
+from PIL import Image
+
 from ..time import *
 from ..utils import *
 from ..timestream import *
@@ -10,15 +17,10 @@ from .base import PipelineStep
 
 import datetime as dt
 import os.path as op
+from sys import stderr, stdout, stdin
 import re
 import io
 import sys
-import imageio
-import numpy as np
-import rawpy
-import cv2
-import skimage as ski
-from PIL import Image
 
 
 class DecodeImageFileStep(PipelineStep):
@@ -51,23 +53,17 @@ class DecodeImageFileStep(PipelineStep):
         self.process_raws = process_raws
 
     def process_file(self, file):
-        try:
-            base, ext = op.splitext(file.filename)
-            format = ext.lower().strip(".")
-            if format in ("cr2", "nef", "rw2"):
-                with rawpy.imread(io.BytesIO(file.content)) as img:
-                    if self.process_raws:
-                        pixels = img.postprocess(**self.decode_options[format].copy())
-                    else:
-                        pixels = img.raw_image.copy()
-            else:
-                pixels = imageio.imread(file.content)
-            return TimestreamImage.from_timestreamfile(file, pixels=pixels)
-        except Exception as exc:
-            path = file.filename
-            if hasattr(file.fetcher, "pathondisk"):
-                path = file.fetcher.pathondisk
-            print(f"\n{exc.__class__.__name__}: {str(exc)} while decoding '{path}'\n", file=stderr)
+        base, ext = op.splitext(file.filename)
+        format = ext.lower().strip(".")
+        if format in ("cr2", "nef", "rw2"):
+            with rawpy.imread(io.BytesIO(file.content)) as img:
+                if self.process_raws:
+                    pixels = img.postprocess(**self.decode_options[format].copy())
+                else:
+                    pixels = img.raw_image.copy()
+        else:
+            pixels = imageio.imread(file.content)
+        return TimestreamImage.from_timestreamfile(file, pixels=pixels)
 
 
 class EncodeImageFileStep(PipelineStep):
@@ -108,28 +104,25 @@ class EncodeImageFileStep(PipelineStep):
             self.options.update(encode_options)
 
     def process_file(self, file):
-        try:
-            if not isinstance(file, TimestreamImage):
-                raise TypeError("EncodeImageFile operates on TimestreamImage (not TimestreamFile)")
+        if not isinstance(file, TimestreamImage):
+            raise TypeError("EncodeImageFile operates on TimestreamImage (not TimestreamFile)")
 
-            base, ext = op.splitext(file.filename)
-            filename = f"{base}.{self.format}"
+        base, ext = op.splitext(file.filename)
+        filename = f"{base}.{self.format}"
 
-            # TODO: encode exif data for tiff & jpeg
-            if self.format == "tif":
-                # So tiffs are a bit broken in imageio at the moment. Therefore we need some
-                # manual hackery with PIL
-                with io.BytesIO() as buf:
-                    file.pil.save(buf, **self.options)
-                    content = buf.getvalue()
-            elif self.format == "png" or self.format == "jpg":
-                content = imageio.imwrite('<bytes>', file.rgb_8, **self.options)
-            # reinstatiate and demote to a TimestreamFile
-            return TimestreamFile(content=content, filename=filename,
-                                  instant=file.instant, report=file.report,
-                                  format=self.format)
-        except Exception as exc:
-            print(f"\n{exc.__class__.__name__}: {str(exc)} while encoding '{file.filename}'\n", file=stderr)
+        # TODO: encode exif data for tiff & jpeg
+        if self.format == "tif":
+            # So tiffs are a bit broken in imageio at the moment. Therefore we need some
+            # manual hackery with PIL
+            with io.BytesIO() as buf:
+                file.pil.save(buf, **self.options)
+                content = buf.getvalue()
+        elif self.format == "png" or self.format == "jpg":
+            content = imageio.imwrite('<bytes>', file.rgb_8, **self.options)
+        # reinstatiate and demote to a TimestreamFile
+        return TimestreamFile(content=content, filename=filename,
+                                instant=file.instant, report=file.report,
+                                format=self.format)
 
 
 class TimestreamImage(TimestreamFile):
