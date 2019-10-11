@@ -59,7 +59,7 @@ class GigavisionMosaicStep(PipelineStep):
             file = DecodeImageFileStep().process_file(file)
 
         if isinstance(file.fetcher, FileContentFetcher):
-            self.current_image_files.append(str(file.fetcher.path))
+            self.current_image_files.append(str(file.fetcher.pathondisk))
 
         composite_img = None
         if self.current_datetime != file.instant.datetime:
@@ -74,7 +74,7 @@ class GigavisionMosaicStep(PipelineStep):
         try:
             row, col = index2rowcol(int(file.instant.index)-1, self.superdim[0], self.superdim[1], self.order)
         except (TypeError, ValueError) as exc:
-            print(str(exc), file.filename, file=stderr)
+            print(str(exc), file.filename, file.instant.index, file=stderr)
             return None
         top = row * self.subimgres[0]
         bottom = top + self.subimgres[0]

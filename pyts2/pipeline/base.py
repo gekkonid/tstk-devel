@@ -45,14 +45,14 @@ class TSPipeline(object):
             file.report["Errors"] = None
             try:
                 file = step.process_file(file)
-            except SkipImage:
-                return None
             except Exception as exc:
-                tb = traceback.format_exc()
-                print(f"\npipeline failed at {step.__class__.__name__}: {tb}", file=stderr)
                 if file is not None:
-                    file.report["Errors"] = str(exc)
-                    break
+                    path = file.filename
+                    if hasattr(file.fetcher, "pathondisk"):
+                        path = file.fetcher.pathondisk
+                    print(f"\n{exc.__class__.__name__}: {str(exc)} while decoding '{path}'\n", file=stderr)
+                    file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
+                break
         if file is not None:
             self.report.record(file.instant, **file.report)
         return file
