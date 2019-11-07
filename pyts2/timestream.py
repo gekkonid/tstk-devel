@@ -3,19 +3,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+
 import datetime as dt
+import hashlib
 import io
 import os
 import os.path as op
+from pathlib import Path
+from queue import Queue
 import re
+from sys import stderr, stdout, stdin
 import tarfile
+from threading import Thread
 import traceback
 import warnings
 import zipfile
-from queue import Queue
-from threading import Thread
-from pathlib import Path
-import hashlib
 import zlib
 
 from pyts2.time import *

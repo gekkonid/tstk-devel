@@ -13,6 +13,7 @@ from pyts2.utils import *
 
 import re
 import shlex
+from sys import stderr, stdout, stdin
 
 
 class GigavisionMosaicStep(PipelineStep):
