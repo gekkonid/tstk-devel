@@ -17,6 +17,7 @@ from pyts2.utils import CatchSignalThenExit
 import argparse as ap
 import os
 from os.path import realpath
+import shutil
 import sys
 import datetime
 
@@ -205,9 +206,11 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
         help="Input image format (use extension as lower case for raw formats)")
 @click.option("--rm-script", "-s", default=None, type=Path(writable=True),
         help="Write a bash script that removes files to here")
+@click.option("--move-dest", "-m", default=None, type=Path(writable=True), metavar="DEST",
+        help="Don't remove, move to DEST")
 @click.option("--yes", "-y", "force_delete", default=False, is_flag=True,
         help="Delete files without asking")
-def verify(ephemeral, resource, informat, force_delete, rm_script):
+def verify(ephemeral, resource, informat, force_delete, rm_script, move_dest):
     ephemeral_ts = TimeStream(ephemeral, format=informat)
     resource_ts = TimeStream(resource, format=informat)
     to_delete = []
@@ -228,15 +231,20 @@ def verify(ephemeral, resource, informat, force_delete, rm_script):
     finally:
         if rm_script is not None:
             with open(rm_script, "w") as fh:
+                cmd = "rm -vf" if move_dest is None else f"mv -n -t {move_dest}"
                 for f in to_delete:
-                    print("rm -fv", realpath(f), file=fh)
+                    print(cmd, realpath(f), file=fh)
         else:
             click.echo("will delete the following files:")
             for f in to_delete:
                 click.echo("\t{}".format(f))
             if force_delete or click.confirm("Is that OK?"):
                 for f in to_delete:
-                    os.unlink(f)
+                    if move_dest is None:
+                        os.unlink(f)
+                    else:
+                        os.makedirs(move_dest, exist_ok=True)
+                        shutil.move(f, move_dest)
 
 
 @tstk_main.command()
@@ -323,6 +331,7 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
         pipe.finish()
         if audit_output is not None:
             pipe.report.save(audit_output)
+
 
 @tstk_main.command()
 @click.option("--informat", "-F", default=None,
