@@ -235,7 +235,10 @@ def verify(ephemeral, resource, informat, force_delete, rm_script, move_dest):
                 for f in to_delete:
                     print(cmd, realpath(f), file=fh)
         else:
-            click.echo("will delete the following files:")
+            if move_dest is None:
+                click.echo("Will delete the following files:")
+            else:
+                click.echo(f"Will move the following files to {move_dest}:")
             for f in to_delete:
                 click.echo("\t{}".format(f))
             if force_delete or click.confirm("Is that OK?"):
