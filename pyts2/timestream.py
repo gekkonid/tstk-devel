@@ -183,7 +183,7 @@ class TimeStream(object):
 
     def __init__(self, path=None, format=None, onerror="warn",
                  bundle_level="none", name=None, timefilter=None,
-                 add_subsecond_field=False):
+                 add_subsecond_field=False, flat_output=False):
         """path is the base directory of a timestream"""
         self._files = {}
         self._instants = None
@@ -192,6 +192,7 @@ class TimeStream(object):
         self.format = None
         self.sorted = True
         self.add_subsecond_field = add_subsecond_field
+        self.flat_output = flat_output
         if timefilter is not None and not isinstance(timefilter, TimeFilter):
             raise ValueError("TimeFilter is not valid")
         self.timefilter = timefilter
@@ -310,7 +311,11 @@ class TimeStream(object):
             idxstr = "_" + str(file.instant.index)
         if self.add_subsecond_field:
             idxstr = "_00" + idxstr
-        path = f"%Y/%Y_%m/%Y_%m_%d/%Y_%m_%d_%H/{self.name}_%Y_%m_%d_%H_%M_%S{idxstr}.{file.format}"
+        fname = f"{self.name}_%Y_%m_%d_%H_%M_%S{idxstr}.{file.format}"
+        if self.flat_output:
+            path = fname
+        else:
+            path = f"%Y/%Y_%m/%Y_%m_%d/%Y_%m_%d_%H/{fname}"
         return file.instant.datetime.strftime(path)
 
     def _bundle_archive_path(self, file):

@@ -115,8 +115,10 @@ def audit(output, input, ncpus=1, informat=None):
                    "--size pixels at original resolution.")
 @click.option("--size", "-s", default='720x',
               help="Output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
+@click.option("--flat", is_flag=True, default=False,
+              help="Output all images to a single directory (flat timestream structure).")
 @click.argument("input")
-def downsize(input, output, ncpus, informat, outformat, size, bundle, mode):
+def downsize(input, output, ncpus, informat, outformat, size, bundle, mode, flat):
     if mode == "resize":
         downsizer = ResizeImageStep(geom=size)
     elif mode == "centrecrop" or mode == "crop":
@@ -127,7 +129,7 @@ def downsize(input, output, ncpus, informat, outformat, size, bundle, mode):
         EncodeImageFileStep(format=outformat),
     )
     ints = TimeStream(input, format=informat)
-    outts = TimeStream(output, format=outformat, bundle_level=bundle, add_subsecond_field=True)
+    outts = TimeStream(output, format=outformat, bundle_level=bundle, add_subsecond_field=True, flat_output=flat)
     try:
         pipe.process_to(ints, outts, ncpus=ncpus)
     finally:
