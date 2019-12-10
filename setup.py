@@ -14,6 +14,8 @@ with open("requirements.txt") as fh:
 
 test_requires = [
     "pytest",
+    "pytest-cov",
+    "pytest-remotedata",
 ]
 
 

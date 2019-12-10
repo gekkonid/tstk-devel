@@ -50,7 +50,7 @@ class TSPipeline(object):
                     path = file.filename
                     if hasattr(file.fetcher, "pathondisk"):
                         path = file.fetcher.pathondisk
-                    print(f"\n{exc.__class__.__name__}: {str(exc)} while decoding '{path}'\n", file=stderr)
+                    print(f"\n{exc.__class__.__name__}: {str(exc)} while processing '{path}'\n", file=stderr)
                     file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
                 break
         if file is not None:

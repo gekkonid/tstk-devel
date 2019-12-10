@@ -12,6 +12,7 @@ from .imageio import *
 import numpy as np
 import zbarlight
 import skimage as ski
+from skimage.color import rgb2lab
 
 
 class ImageMeanColourException(Exception):
@@ -36,7 +37,7 @@ class ImageMeanColourStep(PipelineStep):
             # precomputed mean value. I think this is the same???
             #meanlab = file.Lab.mean(axis=(0,1))  # this uses even more RAM
             meanimg = meanrgb[np.newaxis,np.newaxis,:]  # extra pretend axes for skimage
-            meanlab = ski.color.rgb2lab(meanimg).mean(axis=(0,1))
+            meanlab = rgb2lab(meanimg).mean(axis=(0,1))
             file.report.update({"ImageMean_L": meanlab[0],
                                 "ImageMean_a": meanlab[1],
                                 "ImageMean_b":meanlab[2]})

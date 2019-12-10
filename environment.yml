@@ -10,6 +10,7 @@ dependencies:
   - msgpack-python
   - numpy
   - opencv
+  - pytz
   - scikit-image
   - tqdm
   - zbarlight
@@ -18,3 +19,4 @@ dependencies:
     - rawpy
     - tqdm
     - datetime_truncate
+    - influxdb

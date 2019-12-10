@@ -8,6 +8,7 @@ import rawpy
 import cv2
 import imageio
 import skimage as ski
+from skimage.color import rgb2lab
 from PIL import Image
 
 from ..time import *
@@ -161,7 +162,7 @@ class TimestreamImage(TimestreamFile):
 
     @property
     def Lab(self):
-        return ski.color.rgb2lab(self.pixels)
+        return rgb2lab(self.pixels)
 
     @property
     def pixels(self):
