@@ -6,7 +6,8 @@
 from .base import PipelineStep
 from datetime_truncate import truncate
 
-class AlignStep(PipelineStep):
+
+class TruncateTimeStep(PipelineStep):
 
     def __init__(self, truncate_to='5_minute'):
         self.truncate_to = truncate_to

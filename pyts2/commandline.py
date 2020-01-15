@@ -322,8 +322,13 @@ def verify(ephemerals, resource, informat, force_delete, rm_script, move_dest, p
 @click.option("--order", "-O", default="colsright",
               type=Choice(["colsright", "colsleft", "rowsdown", "rowsup"]),
               help="Order in which images are taken (cols or rows, left orright)")
+# time
+@click.option("--truncate-time", type=str, default=None, metavar="TIME",
+              help="Truncate time to TIME")
+# audit
 @click.option("--audit-output", "-a", type=Path(writable=True), default=None,
               help="Audit log output TSV. If given, input images will be audited, with the log saved here.")
+# composite/mosaicing
 @click.option("--composite-size", "-s", type=str, default="200x300",
               help="Size of each sub-image in a composite, ROWSxCOLS")
 @click.option("--composite-format", "-f", type=str, default="jpg",
@@ -334,12 +339,19 @@ def verify(ephemerals, resource, informat, force_delete, rm_script, move_dest, p
               help="Level at which to bundle composite image output")
 @click.option("--composite-centrecrop", "-S", type=float, default=0.5, metavar="PROPORTION",
               help="Crop centre of each image. takes centre PROPORTION h x w from each image")
+# verbatim bundling
+@click.option("--bundle-output", "--bo", type=str, default=None,
+              help="Output timestream for verbtaim import images")
+@click.option("--bundle-level", "--bb", type=Choice(TimeStream.bundle_levels), default="none",
+              help="Level at which to bundle verbatim images")
+# recoding
 @click.option("--recoded-output", "--ro", type=str, default=None,
               help="Output timestream for recoded import images")
 @click.option("--recoded-format", "--rf", type=str, default=None,
               help="File format of  images")
 @click.option("--recoded-bundling", "--rb", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle recoded images")
+# source removal
 @click.option("--rm-script", "-x", type=Path(writable=True), metavar="FILE",
               help="Write a script which deletes input files to FILE.")
 @click.option("--mv-destination", type=Path(), metavar="DIR",
@@ -347,7 +359,8 @@ def verify(ephemerals, resource, informat, force_delete, rm_script, move_dest, p
 @click.argument("input")
 def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
              composite_format, composite_size, composite_output, composite_centrecrop,
-             recoded_output, recoded_format, recoded_bundling, rm_script, mv_destination):
+             bundle_output, bundle_level, recoded_output, recoded_format,
+             recoded_bundling, rm_script, mv_destination, truncate_time):
 
     from pyts2.pipeline.gigavision import GigavisionMosaicStep
 
@@ -355,6 +368,13 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
 
     composite_ts = TimeStream(composite_output, bundle_level=composite_bundling, add_subsecond_field=True)
     steps = []
+
+    if truncate_time is not None:
+        steps.append(TruncateTimeStep(truncate_time))
+
+    if bundle_output is not None:
+        verbatim_ts = TimeStream(bundle_output, bundle_level=bundle_level)
+        steps.append(TeeStep(verbatim_ts))
 
     # decode image
     steps.append(DecodeImageFileStep())
@@ -368,8 +388,8 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
         )
         steps.append(audit_pipe)
 
-    # run recode pipeline
     if recoded_output is not None:
+        # run recode pipeline
         recoded_ts = TimeStream(recoded_output, bundle_level=recoded_bundling)
         recoded_pipe = TSPipeline(
             EncodeImageFileStep(format=recoded_format),
