@@ -23,6 +23,12 @@ def test_tsinstant_cmp():
         assert bigger <= bigger
 
 
+def test_tsinstant_indexhandling():
+    assert TSInstant("2019_12_31_23_59_59", "_1") == TSInstant("2019_12_31_23_59_59", "_0001")
+    assert TSInstant("2019_12_31_23_59_59", "_1001") != TSInstant("2019_12_31_23_59_59", "_10001")
+    assert str(TSInstant("2019_12_31_23_59_59", "_1")) == "2019_12_31_23_59_59_0001"
+
+
 def test_timefilter():
     dtnow = dt.datetime.now()
     dnow = dtnow.date()

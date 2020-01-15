@@ -63,7 +63,26 @@ class TSInstant(object):
 
     def __init__(self, datetime, index=None):
         self.datetime = parse_date(datetime)
-        self.index = index
+        self.index=index
+
+    @property
+    def index(self):
+        if isinstance(self._index, int):
+            return f"{self._index:04d}"
+        return self._index
+
+    @index.setter
+    def index(self, val):
+        if val is None or val == "_00" or val == "":
+            self._index = None
+            return
+        if val.startswith("_00_"):
+            val = val[4:]
+        val = val.lstrip("_")
+        try:
+            self._index = int(val)
+        except (TypeError, ValueError):
+            self._index = val
 
     def __str__(self):
         idx = f"_{self.index}" if self.index is not None else ""
@@ -134,12 +153,6 @@ class TSInstant(object):
 
         datetime = parse_date(dt)
 
-        if index is not None:
-            if index.startswith("_00_"):
-                index = index[4:]
-            index = index.lstrip("_")
-            if index == "":
-                index = None
         return TSInstant(datetime, index)
 
 def parse_partial_date(datestr, max=False):

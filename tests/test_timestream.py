@@ -30,7 +30,7 @@ def test_read(data):
             if stream.sorted:
                 assert file.instant == expect_insts[i]
 
-        assert list(sorted(stream.instants))) == expect_insts
+        assert list(sorted(stream.instants)) == expect_insts
 
 
 def test_gvlike(data):
@@ -147,7 +147,7 @@ def test_read_with_filter(data):
                 assert file.instant == expect_insts[i]
             else:
                 assert file.instant in expect_insts
-        assert list(sorted(stream.instants))) == expect_insts
+        assert list(sorted(stream.instants)) == expect_insts
 
 def test_zip_overwrite(data, tmpdir):
     in_stream = TimeStream(data("timestreams/nested"))
