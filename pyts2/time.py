@@ -12,7 +12,7 @@ import iso8601
 
 
 TS_DATEFMT = "%Y_%m_%d_%H_%M_%S"
-TS_DATETIME_RE = re.compile(r"(\d{4}_[0-1]\d_[0-3]\d_[0-2]\d_[0-5]\d_[0-5]\d)(_\w+)?")
+TS_DATETIME_RE = re.compile(r"(\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d)(_\w+)?")
 
 
 def extract_datetime(path):
@@ -135,11 +135,11 @@ class TSInstant(object):
         datetime = parse_date(dt)
 
         if index is not None:
-            if index.startswith("_00"):
-                index = index[3:]
+            if index.startswith("_00_"):
+                index = index[4:]
             index = index.lstrip("_")
             if index == "":
-                index=None
+                index = None
         return TSInstant(datetime, index)
 
 def parse_partial_date(datestr, max=False):
