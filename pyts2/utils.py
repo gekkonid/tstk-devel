@@ -11,6 +11,9 @@ import os
 import os.path as op
 from zipfile import ZipFile, ZIP_STORED
 import re
+import json
+import pathlib
+from pathlib import Path
 
 
 def nowarnings(func):
@@ -109,3 +112,9 @@ def index2rowcol(index, rows, cols, order):
     else:
         raise ValueError("Bad order")
 
+
+class PathAwareJsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Path):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)

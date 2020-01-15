@@ -230,7 +230,8 @@ class TimeStream(object):
 
     def __init__(self, path=None, format=None, onerror="warn",
                  bundle_level="none", name=None, timefilter=None,
-                 add_subsecond_field=False, flat_output=False):
+                 add_subsecond_field=False, flat_output=False,
+                 write_index=False):
         """path is the base directory of a timestream"""
         self._files = {}
         self._instants = {}
@@ -238,6 +239,7 @@ class TimeStream(object):
         self.path = None
         self.format = None
         self.sorted = True
+        self.write_index = write_index
         self.add_subsecond_field = add_subsecond_field
         self.flat_output = flat_output
         if timefilter is not None and not isinstance(timefilter, TimeFilter):
@@ -279,7 +281,7 @@ class TimeStream(object):
                 pass
             try:
                 if op.exists(self._index_file):  # TODO FIXME make this check if the index is stale
-                    print("Load index:", file=stderr)
+                    print("read index", self._index_file, file=stderr)
                     with open(self._index_file, "r") as fh:
                         self._files = {}
                         self._instants = {}
@@ -287,21 +289,25 @@ class TimeStream(object):
                             fetcher = Fetcher.from_json(json.loads(line))
                             self._files[fetcher.filename] = fetcher
                             self._instants[fetcher.instant] = fetcher
-                        return
+                        if len(self._instants) > 0 and len(self._files) > 0:
+                            return
             except Exception as exc:
                 print("Failed to load index file:", str(exc), file=stderr)
                 if stderr.isatty():
                     traceback.print_exc(file=stderr)
             with FileLock(self._index_file):
-                print("Create index:", file=stderr)
                 try:
                     itr = self.iter(tar_contents=False)
                     if progress:
                         itr = tqdm(itr)
-                    with open(self._index_file, "w") as fh:
+                    if self.write_index:
+                        with open(self._index_file, "w") as fh:
+                            for f in itr:
+                                self._instants[f.instant] = f.fetcher
+                                print(json.dumps(f.fetcher.dict(), cls=PathAwareJsonEncoder), file=fh)
+                    else:
                         for f in itr:
                             self._instants[f.instant] = f.fetcher
-                            print(json.dumps(f.fetcher.dict()), file=fh)
                 except Exception as exc:
                     print("Failed to create timestream index file:", str(exc), file=stderr)
                     if stderr.isatty():

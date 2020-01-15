@@ -20,7 +20,7 @@ from .resize import (
     ResizeImageStep,
     CropCentreStep,
 )
-from .align_time import AlignStep
+from .align_time import TruncateTimeStep
 from .imageio import (
     TimestreamImage,
     DecodeImageFileStep,
