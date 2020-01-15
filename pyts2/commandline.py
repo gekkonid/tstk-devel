@@ -7,6 +7,7 @@
 import click
 from click import Choice, Path, DateTime
 from tqdm import tqdm
+import numpy as np
 
 from pyts2 import TimeStream
 from pyts2.timestream import FileContentFetcher
@@ -16,10 +17,12 @@ from pyts2.utils import CatchSignalThenExit
 
 import argparse as ap
 import os
-from os.path import realpath
+from os.path import realpath, basename
 import shutil
 import sys
+from sys import stdin, stdout, stderr
 import datetime
+import traceback
 
 
 def valid_date(s):
@@ -200,56 +203,115 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
 
 
 @tstk_main.command()
-@click.option("--ephemeral", "-e", type=Path(readable=True), required=True,
-        help="Ephemeral image source location")
 @click.option("--resource", "-r", required=True, type=Path(readable=True),
         help="Archival bundled TimeStream")
 @click.option("--informat", "-F", default=None,
         help="Input image format (use extension as lower case for raw formats)")
+@click.option("--pixel-distance", "-p", default=None, type=float,
+        help="Fuzzily match images based on distance in pixel units. Formula is abs(X - Y)/maxpixelval/npixel, i.e. 0 for no distance and 1 for all white vs all black.")
+@click.option("--distance-file", default=None, type=Path(writable=True),
+        help="Write log of each ephemeral file's distance to tsv file")
 @click.option("--rm-script", "-s", default=None, type=Path(writable=True),
         help="Write a bash script that removes files to here")
 @click.option("--move-dest", "-m", default=None, type=Path(writable=True), metavar="DEST",
         help="Don't remove, move to DEST")
+@click.option("--only-check-exists", default=False, is_flag=True,
+        help="Only check that a file at the same timepoint exists.")
 @click.option("--yes", "-y", "force_delete", default=False, is_flag=True,
         help="Delete files without asking")
-def verify(ephemeral, resource, informat, force_delete, rm_script, move_dest):
-    ephemeral_ts = TimeStream(ephemeral, format=informat)
+@click.argument("ephemerals", type=Path(readable=True), nargs=-1)
+def verify(ephemerals, resource, informat, force_delete, rm_script, move_dest, pixel_distance, distance_file, only_check_exists):
+    """
+    Verify images from each of EPHEMERAL, ensuring images are in --resources.
+    """
     resource_ts = TimeStream(resource, format=informat)
+    decoder = DecodeImageFileStep()
     to_delete = []
-    resource_images = resource_ts.instants
-    try:
-        for image in tqdm(ephemeral_ts, unit=" files"):
-            try:
-                res_img = resource_images[image.instant]
-                if image.md5sum == res_img.md5sum:
-                    if not isinstance(image.fetcher, FileContentFetcher):
-                        click.echo(f"WARNING: can't delete {image.filename} as it is bundled", err=True)
-                    to_delete.append(image.fetcher.pathondisk)
-                res_img.clear_content()
-            except KeyError:
-                continue
-            except Exception as exc:
-                click.echo(f"WARNING: error in resources lookup of {image.filename}: {str(exc)}", err=True)
-    finally:
+    resource_ts.index()
+
+    if rm_script is not None:
+        with open(rm_script, "w") as fh:
+            print("# rmscript for", *ephemerals, file=fh)
+
+    def do_delete():
+        if distance_file is not None:
+            distance_file.flush()
         if rm_script is not None:
-            with open(rm_script, "w") as fh:
+            with open(rm_script, "a") as fh:
                 cmd = "rm -vf" if move_dest is None else f"mv -n -t {move_dest}"
                 for f in to_delete:
                     print(cmd, realpath(f), file=fh)
-        else:
-            if move_dest is None:
-                click.echo("Will delete the following files:")
-            else:
+            return
+        if not force_delete:
+            if move_dest is not None:
                 click.echo(f"Will move the following files to {move_dest}:")
+            else:
+                click.echo("Will delete the following files:")
             for f in to_delete:
-                click.echo("\t{}".format(f))
-            if force_delete or click.confirm("Is that OK?"):
-                for f in to_delete:
+                click.echo(f"\t{f}")
+        if force_delete or click.confirm("Is that OK?"):
+            for f in to_delete:
+                try:
                     if move_dest is None:
                         os.unlink(f)
                     else:
                         os.makedirs(move_dest, exist_ok=True)
                         shutil.move(f, move_dest)
+                except Exception as exc:
+                    tqdm.write(f"Error deleting {f}: {str(exc)}")
+                    if stderr.isatty():
+                        traceback.print_exc(file=stderr)
+            tqdm.write(f"Deleted {len(to_delete)} files")
+
+    if distance_file is not None:
+        distance_file = open(distance_file, "w")
+        print("ephemeral_image\tresource_image\tdistance", file=distance_file)
+    for ephemeral in ephemerals:
+        click.echo(f"Crawling ephemeral timestream: {ephemeral}")
+        ephemeral_ts = TimeStream(ephemeral, format=informat)
+        try:
+            for image in tqdm(ephemeral_ts, unit=" files"):
+                if len(to_delete) > 0 and len(to_delete) % 1000 == 0:
+                    do_delete()
+                    to_delete = []
+                try:
+                    res_img = resource_ts.getinstant(image.instant)
+                    if not isinstance(image.fetcher, FileContentFetcher):
+                        click.echo(f"WARNING: can't delete {image.filename} as it is bundled", err=True)
+                        continue
+                    if only_check_exists:
+                        to_delete.append(image.fetcher.pathondisk)
+                    elif pixel_distance is not None:
+                        eimg = decoder.process_file(image)
+                        rimg = decoder.process_file(res_img)
+                        if eimg.pixels.shape != rimg.pixels.shape:
+                            if distance_file is not None:
+                                print(basename(image.filename), basename(res_img.filename), "NA", file=distance_file)
+                            continue
+                        dist = np.mean(abs(eimg.pixels - rimg.pixels))
+                        if distance_file is not None:
+                            print(basename(image.filename), basename(res_img.filename), dist, file=distance_file)
+                        if dist < pixel_distance:
+                            to_delete.append(image.fetcher.pathondisk)
+                    elif image.md5sum == res_img.md5sum:
+                        to_delete.append(image.fetcher.pathondisk)
+                except KeyError:
+                    tqdm.write(f"{image.instant} not in {resource}")
+                    if distance_file is not None:
+                        print(basename(image.filename), "", "", file=distance_file)
+                except Exception as exc:
+                    click.echo(f"WARNING: error in resources lookup of {image.filename}: {str(exc)}", err=True)
+                    if stderr.isatty():
+                        traceback.print_exc(file=stderr)
+        except KeyboardInterrupt:
+            print("\n\nExiting cleanly", file=stderr)
+            break
+        finally:
+            do_delete()
+            to_delete = []
+    do_delete()
+    if distance_file is not None:
+        distance_file.close()
 
 
 @tstk_main.command()
@@ -355,15 +417,14 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
               help="End time of day (inclusive)")
 @click.argument("input")
 @click.argument("output")
-def cp(force, informat, bundle, input, output, start_time, start_date, end_time, end_date, interval):
+def cp(informat, bundle, input, output, start_time, start_date, end_time, end_date, interval):
     tfilter = TimeFilter(start_date, end_date, start_time, end_time)
     if interval is not None:
         raise NotImplementedError("haven't done interval restriction yet")
     output =  TimeStream(output, bundle_level=bundle)
-    for image in TimeStream(input, format=informat, timefilter=tfilter):
+    for image in tqdm(TimeStream(input, format=informat, timefilter=tfilter)):
         with CatchSignalThenExit():
             output.write(image)
-        click.echo(f"Processing {image}")
 
 
 if __name__ == "__main__":

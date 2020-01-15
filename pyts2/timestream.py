@@ -3,12 +3,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from tqdm import tqdm
 
+import copy
 import datetime as dt
 import hashlib
 import io
 import os
 import os.path as op
+import json
 from pathlib import Path
 from queue import Queue
 import re
@@ -68,7 +71,21 @@ def path_is_timestream_file(path, extensions=None):
         return False
 
 
-class ZipContentFetcher(object):
+class Fetcher(object):
+    @classmethod
+    def from_json(self, obj):
+        if obj["type"] == "zip":
+            return ZipContentFetcher(obj["archivepath"], obj["pathinzip"])
+        elif obj["type"] == "tar":
+            return TarContentFetcher(obj["archivepath"], obj["pathintar"])
+
+    @property
+    def instant(self):
+        return TSInstant.from_path(self.filename)
+
+
+class ZipContentFetcher(Fetcher):
+    _fetchtype = 'zip'
     def __init__(self, archivepath, pathinzip):
         self.archivepath = archivepath
         self.pathinzip = pathinzip
@@ -77,7 +94,18 @@ class ZipContentFetcher(object):
         with zipfile.ZipFile(str(self.archivepath)) as zfh:
             return zfh.read(self.pathinzip)
 
-class TarContentFetcher(object):
+    @property
+    def filename(self):
+        return op.basename(self.pathinzip)
+
+    def dict(self):
+        return {"type": "zip",
+                "archivepath": self.archivepath,
+                "pathinzip": self.pathinzip}
+
+
+class TarContentFetcher(Fetcher):
+    _fetchtype = 'tar'
     def __init__(self, archivepath, pathintar):
         self.archivepath = archivepath
         self.pathintar = pathintar
@@ -86,8 +114,17 @@ class TarContentFetcher(object):
         with tarfile.TarFile(self.archivepath) as tfh:
             return tfh.extractfile(self.pathintar).read()
 
+    @property
+    def filename(self):
+        return op.basename(self.pathintar)
 
-class FileContentFetcher(object):
+    def dict(self):
+        return {"type": "tar",
+                "archivepath": self.archivepath,
+                "pathintar": self.pathintar}
+
+
+class FileContentFetcher(Fetcher):
     def __init__(self, path):
         self.pathondisk = Path(path)
 
@@ -95,6 +132,13 @@ class FileContentFetcher(object):
         with open(self.pathondisk, "rb") as fh:
             return fh.read()
 
+    @property
+    def filename(self):
+        return op.basename(self.pathondisk)
+
+    def dict(self):
+        return {"type": "file",
+                "path": self.pathondisk}
 
 
 class TimestreamFile(object):
@@ -131,6 +175,9 @@ class TimestreamFile(object):
     def clear_content(self):
         del self._content
         self._content = None
+        if hasattr(self, '_pixels'):
+            del self._pixels
+            self._pixels = None
 
     # TODO: work out where this should go. be careful, as setting here should sync to
     # disc perhaps?
@@ -186,7 +233,7 @@ class TimeStream(object):
                  add_subsecond_field=False, flat_output=False):
         """path is the base directory of a timestream"""
         self._files = {}
-        self._instants = None
+        self._instants = {}
         self.name = name
         self.path = None
         self.format = None
@@ -206,6 +253,11 @@ class TimeStream(object):
         if path is not None:
             self.open(path, format=format)
 
+        if bundle_level == "root" or op.isfile(self.path):
+            self._index_file = self.path + ".index.json"
+        else:
+            self._index_file = op.join(self.path, "index.json")
+
     def open(self, path, format=None):
         if self.name is None:
             self.name = op.basename(path)
@@ -221,18 +273,57 @@ class TimeStream(object):
         self.format = format
         self.path = path
 
+    def index(self, progress=True):
+        if len(self._instants) == 0 or len(self._files) == 0:
+            with FileLock(self._index_file, timeout=3600):
+                pass
+            try:
+                if op.exists(self._index_file):  # TODO FIXME make this check if the index is stale
+                    print("Load index:", file=stderr)
+                    with open(self._index_file, "r") as fh:
+                        self._files = {}
+                        self._instants = {}
+                        for line in tqdm(fh):
+                            fetcher = Fetcher.from_json(json.loads(line))
+                            self._files[fetcher.filename] = fetcher
+                            self._instants[fetcher.instant] = fetcher
+                        return
+            except Exception as exc:
+                print("Failed to load index file:", str(exc), file=stderr)
+                if stderr.isatty():
+                    traceback.print_exc(file=stderr)
+            with FileLock(self._index_file):
+                print("Create index:", file=stderr)
+                try:
+                    itr = self.iter(tar_contents=False)
+                    if progress:
+                        itr = tqdm(itr)
+                    with open(self._index_file, "w") as fh:
+                        for f in itr:
+                            self._instants[f.instant] = f.fetcher
+                            print(json.dumps(f.fetcher.dict()), file=fh)
+                except Exception as exc:
+                    print("Failed to create timestream index file:", str(exc), file=stderr)
+                    if stderr.isatty():
+                        traceback.print_exc(file=stderr)
+                    if op.exists(self._index_file):
+                        os.unlink(self._index_file)
+
     @property
     def instants(self):
-        if self._instants is None:
-            self._instants = {f.instant: f for f in self.iter(tar_contents=False)}
-        return self._instants
+        self.index(progress=False)
+        return self._instants.keys()
+
+    def getinstant(self, value):
+        if isinstance(value, TimestreamFile):
+            value = value.instant
+        assert(isinstance(value, TSInstant))
+        self.index(progress=False)
+        fetcher = self._instants[value]
+        return TimestreamFile(filename=fetcher.filename, fetcher=fetcher)
 
     def __getitem__(self, filename):
-        if len(self._files) == 0:
-            # the iterator sets up the files dict, so if we don't have any recorded files,
-            # scan through to set up the dict
-            for _ in self.iter(tar_contents=False):
-                pass
+        self.index(progress=False)
         return TimestreamFile(filename=filename, fetcher=self._files[filename])
 
     def iter(self, tar_contents=True):
@@ -273,6 +364,8 @@ class TimeStream(object):
             else: raise ValueError(f"'{path}' appears not to be an archive")
 
         def is_archive(path):
+            if op.isdir(path):
+                return False
             return op.exists(path) and op.isfile(path) and \
                 (zipfile.is_zipfile(str(path)) or tarfile.is_tarfile(path))
 
@@ -288,18 +381,21 @@ class TimeStream(object):
             files.sort(key=lambda f: extract_datetime(f))
             for file in files:
                 path = op.join(root, file)
-                if self.timefilter is not None and not self.timefilter.partial_within(file):
-                    continue
                 if file.startswith("."):
                     continue
                 try:
                     if not (op.isfile(path) and os.access(path, os.R_OK)):
                         raise RuntimeError(f"Could not read {path}, skipping")
                     if is_archive(path):
+                        if self.timefilter is not None and not self.timefilter.partial_within(file):
+                            continue
                         yield from walk_archive(path)
                     if path_is_timestream_file(path, extensions=self.format):
-                        self._files[op.basename(path)] = FileContentFetcher(path)
-                        yield TimestreamFile.from_path(path)
+                        if self.timefilter is not None and not self.timefilter.partial_within(file):
+                            continue
+                        fetcher =  FileContentFetcher(path)
+                        self._files[op.basename(path)] = fetcher
+                        yield TimestreamFile(filename=op.basename(path), fetcher=fetcher)
                 except Exception as exc:
                     print(f"\n{exc.__class__.__name__}: {str(exc)} at '{path}'\n", file=stderr)
 
@@ -338,6 +434,14 @@ class TimeStream(object):
         return file.instant.datetime.strftime(bpath)
 
     def write(self, file):
+        if op.exists(self._index_file):
+            with FileLock(self._index_file):
+                try:
+                    os.unlink(self._index_file)
+                except Exception as exc:
+                    print(str(exc), file=stderr)
+                    if stderr.isatty():
+                        traceback.print_exc(file=stderr)
         if self.name is None:
             raise RuntimeError("TSv2Stream not opened")
         if not isinstance(file, TimestreamFile):
