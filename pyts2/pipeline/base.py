@@ -48,8 +48,6 @@ class TSPipeline(object):
             try:
                 file = step.process_file(file)
             except Exception as exc:
-                if stderr.isatty():
-                    traceback.print_exc(file=stderr)
                 if file is not None:
                     path = file.filename
                     if hasattr(file.fetcher, "pathondisk"):
