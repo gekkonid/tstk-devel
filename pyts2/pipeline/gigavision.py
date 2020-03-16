@@ -89,8 +89,8 @@ class GigavisionMosaicStep(PipelineStep):
             t, b = int(h*s), int(h*(1-s))
             l, r = int(w*s), int(w*(1-s))
             pixels = pixels[t:b, l:r, :]
-        smallpx = ski.transform.resize(pixels, self.subimgres, anti_aliasing=True,
-                                       mode="constant", order=3)
+        from skimage.transform import resize
+        smallpx = resize(pixels, self.subimgres, anti_aliasing=True, mode="constant", order=3)
         self.current_pixels[top:bottom, left:right, ...] = smallpx
         return composite_img
 

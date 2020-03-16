@@ -27,14 +27,16 @@ csv.register_dialect('tsv',
 class TSPipeline(object):
     def __init__(self, *args, reporter=None):
         self.n = 0
-        self.steps = list(args)
+        self.steps = []
+        for step in args:
+            self.add_step(step)
         if reporter is None:
             reporter = ResultRecorder()
         self.report = reporter
 
     def add_step(self, step):
         if not hasattr(step, "process_file"):
-            raise ValueError("step doesn't seem to be a pipeline step")
+            raise ValueError(f"step doesn't seem to be a pipeline step: {step}")
         self.steps.append(step)
         return self # so one can chain calls
 
@@ -53,6 +55,8 @@ class TSPipeline(object):
                     if hasattr(file.fetcher, "pathondisk"):
                         path = file.fetcher.pathondisk
                     print(f"\n{exc.__class__.__name__}: {str(exc)} while processing '{path}'\n", file=stderr)
+                    if stderr.isatty():
+                        traceback.print_exc(file=stderr)
                     file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
                 break
         if file is not None:

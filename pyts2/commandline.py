@@ -374,7 +374,7 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
 
     if bundle_output is not None:
         verbatim_ts = TimeStream(bundle_output, bundle_level=bundle_level)
-        steps.append(TeeStep(verbatim_ts))
+        steps.append(WriteFileStep(verbatim_ts))
 
     # decode image
     steps.append(DecodeImageFileStep())

@@ -13,5 +13,5 @@ class TruncateTimeStep(PipelineStep):
         self.truncate_to = truncate_to
 
     def process_file(self, file):
-        file.datetime = truncate(file.datetime, self.truncate_to)
+        file.instant.datetime = truncate(file.instant.datetime, self.truncate_to)
         return file
