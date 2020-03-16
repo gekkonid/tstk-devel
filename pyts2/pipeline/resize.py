@@ -39,7 +39,12 @@ class GenericDownsizerStep(PipelineStep):
         self.dims = (rows, cols)
 
     def _new_imagesize(self, imgshape):
-        orows, ocols, _ = imgshape
+        assert len(imgshape) in [2, 3]
+        if len(imgshape) == 3:
+            orows, ocols, _ = imgshape
+        else:
+            orows, ocols = imgshape
+
         if self.scale is not None:
             rows = self.scale * orows
             cols = self.scale * ocols
