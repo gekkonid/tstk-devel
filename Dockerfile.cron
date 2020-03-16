@@ -1,5 +1,8 @@
-FROM appf/pyts2:latest
+ARG COMMIT="master"
+FROM appf/pyts2:$COMMIT
 
 RUN apt update && apt install -y --no-install-recommends cron
+
+COPY crontab /etc/crontabs/root
 
 CMD ["crond", "-f", "-d", "8"]
