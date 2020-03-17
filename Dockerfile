@@ -2,10 +2,7 @@ FROM continuumio/miniconda3:latest
 
 WORKDIR /usr/src/pyts2
 
-ARG COMMIT="master"
-
-RUN git clone --depth=1 https://gitlab.com/appf-anu/pyts2.git . && \
-    git checkout $COMMIT
+COPY . .
 
 RUN conda env update -n base -f environment.yml && python setup.py install
 
