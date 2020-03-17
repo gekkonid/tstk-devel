@@ -1,5 +1,5 @@
-ARG SRC_IMAGE=appf/pyts2:latest
-FROM $SRC_IMAGE
+ARG FROM_IMAGE=registry.gitlab.com/appf-anu/pyts2:latest
+FROM $FROM_IMAGE
 
 RUN apt update && apt install -y --no-install-recommends cron
 
