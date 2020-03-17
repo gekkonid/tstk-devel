@@ -1,2 +1,5 @@
 # dont include tests:
 tests
+.gitlab-ci.yml
+.travis.yml
+README.md
