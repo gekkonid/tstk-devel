@@ -3,3 +3,4 @@ tests
 .gitlab-ci.yml
 .travis.yml
 README.md
+Dockerfile*
