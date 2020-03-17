@@ -1,5 +1,5 @@
-ARG COMMIT="master"
-FROM appf/pyts2:$COMMIT
+ARG SRC_IMAGE
+FROM $SRC_IMAGE
 
 RUN apt update && apt install -y --no-install-recommends cron
 
