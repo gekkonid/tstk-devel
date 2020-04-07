@@ -15,6 +15,7 @@ import piexif
 import rawpy
 import numpy as np
 
+import pyts2
 from pyts2 import TimeStream
 from pyts2.timestream import FileContentFetcher
 from pyts2.time import TimeFilter
@@ -64,6 +65,11 @@ def valid_time(s):
 @click.group()
 def tstk_main():
     pass
+
+
+@tstk_main.command()
+def version():
+    print("tstk version", pyts2.__version__)
 
 
 @tstk_main.command()
