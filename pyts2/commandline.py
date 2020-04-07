@@ -6,8 +6,6 @@
 
 import click
 from click import Choice, Path, DateTime
-from tqdm import tqdm
-import numpy as np
 from PIL import Image
 import zbarlight
 from tqdm import tqdm
@@ -41,6 +39,9 @@ import sys
 import datetime
 import traceback
 
+
+def getncpu():
+    return int(os.environ.get("PBS_NCPUS", mp.cpu_count()))
 
 def valid_date(s):
     try:
@@ -98,7 +99,7 @@ def bundle(force, informat, bundle, input, output):
 @tstk_main.command()
 @click.option("--output", "-o", required=True,
               help="Output TSV file name")
-@click.option("--ncpus", "-j", default=1,
+@click.option("--ncpus", "-j", default=getncpu(),
               help="Number of parallel workers")
 @click.option("--informat", "-F", default=None,
               help="Input image format (use extension as lower case for raw formats)")
@@ -127,7 +128,7 @@ def audit(output, input, ncpus=1, informat=None):
 @tstk_main.command()
 @click.option("--output", "-o", required=True,
               help="Output TimeStream")
-@click.option("--ncpus", "-j", default=1,
+@click.option("--ncpus", "-j", default=getncpu(),
               help="Number of parallel workers")
 @click.option("--informat", "-F", default=None,
               help="Input image format (use extension as lower case for raw formats)")
@@ -173,7 +174,7 @@ def downsize(input, output, ncpus, informat, outformat, size, bundle, mode, flat
               help="Archival bundled TimeStream")
 @click.option("--bundle", "-b", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle files.")
-@click.option("--ncpus", "-j", default=1,
+@click.option("--ncpus", "-j", default=getncpu(),
               help="Number of parallel workers")
 @click.option("--downsized-output", "-s", default=None,
               help="Output a downsized copy of the images here")
@@ -472,7 +473,7 @@ def cp(informat, bundle, input, output, start_time, start_date, end_time, end_da
 @tstk_main.command()
 @click.option("--output", "-o", type=click.File("w"), default=stdout,
               help="Output TSV file name")
-@click.option("--ncpus", "-j", default=1,
+@click.option("--ncpus", "-j", default=getncpu(),
               help="Number of parallel workers")
 @click.option("--timestreamify-script", "-t", type=click.File("w"),
               help="Write script to sort images to FILE.")
@@ -480,7 +481,7 @@ def cp(informat, bundle, input, output, start_time, start_date, end_time, end_da
               help="-t script moves files to DIR")
 @click.argument("input", nargs=-1)
 def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpus):
-    from pyts2.imgscan import find_files, is_image, iso8601ify, scanimage
+    from pyts2.imgscan import find_files, is_image, iso8601ify, scanimage, timestreamify
     files = [x for x in tqdm(find_files(*input), desc="Find images", unit=" files")  if is_image(x)]
     print(f"Found {len(files)} files.", file=stderr)
 
@@ -492,7 +493,7 @@ def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpu
 
     pool = mp.Pool(ncpus)
     err = 0
-    for i, res in enumerate(tqdm(pool.imap_unordered(scanimage, files), total=len(files))):
+    for i, res in enumerate(tqdm(pool.imap_unordered(scanimage, files), total=len(files), desc="Scan images", unit=" images")):
         out.writerow(iso8601ify(res))
         if timestreamify_script is not None:
             print(timestreamify(res, timestreamify_destination), file=timestreamify_script)
