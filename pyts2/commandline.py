@@ -1,5 +1,5 @@
-# Copyright (c) 2018-2019 Kevin Murray <foss@kdmurray.id.au>
-
+# Copyright (c) 2018-2020 Kevin Murray <foss@kdmurray.id.au>
+#
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -7,6 +7,12 @@
 import click
 from click import Choice, Path, DateTime
 from tqdm import tqdm
+import numpy as np
+from PIL import Image
+import zbarlight
+from tqdm import tqdm
+import piexif
+import rawpy
 import numpy as np
 
 from pyts2 import TimeStream
@@ -16,11 +22,21 @@ from pyts2.pipeline import *
 from pyts2.utils import CatchSignalThenExit
 
 import argparse as ap
+
+from os.path import dirname, basename, splitext, getsize, realpath
+import io
+from sys import stdout, stderr, stdin, exit
+from csv import DictWriter
+import datetime
+import argparse
+import multiprocessing as mp
+import re
+import traceback
+from shlex import quote
 import os
 from os.path import realpath, basename
 import shutil
 import sys
-from sys import stdin, stdout, stderr
 import datetime
 import traceback
 
@@ -445,6 +461,43 @@ def cp(informat, bundle, input, output, start_time, start_date, end_time, end_da
     for image in tqdm(TimeStream(input, format=informat, timefilter=tfilter)):
         with CatchSignalThenExit():
             output.write(image)
+
+
+@tstk_main.command()
+@click.option("--output", "-o", type=click.File("w"), default=stdout,
+              help="Output TSV file name")
+@click.option("--ncpus", "-j", default=1,
+              help="Number of parallel workers")
+@click.option("--timestreamify-script", "-t", type=click.File("w"),
+              help="Write script to sort images to FILE.")
+@click.option("--timestreamify-destination", "-d", type=str,
+              help="-t script moves files to DIR")
+@click.argument("input", nargs=-1)
+def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpus):
+    from pyts2.imgscan import find_files, is_image, iso8601ify, scanimage
+    files = [x for x in tqdm(find_files(*input), desc="Find images", unit=" files")  if is_image(x)]
+    print(f"Found {len(files)} files.", file=stderr)
+
+    # set up tsv
+    hdr = ["imgpath", "qr_chamber", "qr_experiment", "qr_codes", "pixel_mean", "exif_time", "file_size",
+           "dir_chamber", "dir_experiment", "fn_chamber", "fn_experiment", "fn_time", "error"]
+    out = DictWriter(output, fieldnames=hdr, dialect="excel-tab")
+    out.writeheader()
+
+    pool = mp.Pool(ncpus)
+    err = 0
+    for i, res in enumerate(tqdm(pool.imap_unordered(scanimage, files), total=len(files))):
+        out.writerow(iso8601ify(res))
+        if timestreamify_script is not None:
+            print(timestreamify(res, timestreamify_destination), file=timestreamify_script)
+        if res["error"] is not None:
+            err += 1
+        if i % 100 == 0:
+            output.flush()
+            if timestreamify_script is not None:
+                timestreamify_script.flush()
+    pool.close()
+    print(f"Finished: {len(files)} images, {err} errors.", file=stderr)
 
 
 if __name__ == "__main__":

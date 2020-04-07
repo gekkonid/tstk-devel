@@ -10,13 +10,13 @@ dependencies:
   - msgpack-python
   - numpy
   - opencv
+  - piexif
   - pytz
   - scikit-image
   - tqdm
   - zbarlight
   - pip
   - pip:
-    - rawpy
-    - tqdm
+    - rawpy>=0.14
     - datetime_truncate
     - influxdb
