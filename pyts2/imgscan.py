@@ -64,6 +64,8 @@ def re_experiment(string):
 
 def re_time(string):
     dstr = re_extract(string, r'(\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d)')
+    if dstr is None:
+        return None
     return datetime.datetime.strptime(dstr, "%Y_%m_%d_%H_%M_%S")
 
 
