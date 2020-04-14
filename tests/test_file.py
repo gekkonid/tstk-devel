@@ -11,4 +11,3 @@ def test_file(data):
     assert f.instant == TSInstant("2019_04_01_00_00_00")  # FIXME: hand-code the components
     assert f.format == "jpg"
     assert f.md5sum == "f082ca6435195428ea50058edec9c189"
-

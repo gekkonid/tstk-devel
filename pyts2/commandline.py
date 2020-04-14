@@ -78,15 +78,15 @@ def version():
 @click.option("--bundle", "-b", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle files")
 @click.argument("input")
-                #help="Input files in timestream format of any form but msgpack")
+# help="Input files in timestream format of any form but msgpack")
 @click.argument("output")
-                #help="Output file or directory")
+# help="Output file or directory")
 def bundle(force, informat, bundle, input, output):
     input = TimeStream(input, format=informat)
     if os.path.exists(output) and not force:
         click.echo(f"ERROR: output exists: {output}", err=True)
         sys.exit(1)
-    output =  TimeStream(output, bundle_level=bundle)
+    output = TimeStream(output, bundle_level=bundle)
     for image in input:
         with CatchSignalThenExit():
             output.write(image)
@@ -159,7 +159,6 @@ def downsize(input, output, ncpus, informat, outformat, size, bundle, mode, flat
         click.echo(f"{mode} {input}:{informat} to {output}:{outformat}, found {pipe.n} files")
 
 
-
 ####################################################################################################
 #                                              INGEST                                              #
 ####################################################################################################
@@ -187,7 +186,7 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
 
     steps = [WriteFileStep(outts)]
 
-    #if downsized_output is not None or audit_output is not None:
+    # if downsized_output is not None or audit_output is not None:
     #    steps.append(DecodeImageFileStep())
 
     if audit_output is not None:
@@ -198,7 +197,6 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
             ScanQRCodesStep(),
         )
         steps.append(audit_pipe)
-
 
     if downsized_output is not None:
         downsized_ts = TimeStream(downsized_output, bundle_level=downsized_bundle, add_subsecond_field=True)
@@ -224,21 +222,21 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
 
 @tstk_main.command()
 @click.option("--resource", "-r", required=True, type=Path(readable=True),
-        help="Archival bundled TimeStream")
+              help="Archival bundled TimeStream")
 @click.option("--informat", "-F", default=None,
-        help="Input image format (use extension as lower case for raw formats)")
+              help="Input image format (use extension as lower case for raw formats)")
 @click.option("--pixel-distance", "-p", default=None, type=float,
-        help="Fuzzily match images based on distance in pixel units. Formula is abs(X - Y)/maxpixelval/npixel, i.e. 0 for no distance and 1 for all white vs all black.")
+              help="Fuzzily match images based on distance in pixel units. Formula is abs(X - Y)/maxpixelval/npixel, i.e. 0 for no distance and 1 for all white vs all black.")
 @click.option("--distance-file", default=None, type=Path(writable=True),
-        help="Write log of each ephemeral file's distance to tsv file")
+              help="Write log of each ephemeral file's distance to tsv file")
 @click.option("--only-check-exists", default=False, is_flag=True,
-        help="Only check that a file at the same timepoint exists.")
+              help="Only check that a file at the same timepoint exists.")
 @click.option("--rm-script", "-s", default=None, type=Path(writable=True),
-        help="Write a bash script that removes files to here")
+              help="Write a bash script that removes files to here")
 @click.option("--move-dest", "-m", default=None, type=Path(writable=True), metavar="DEST",
-        help="Don't remove, move to DEST")
+              help="Don't remove, move to DEST")
 @click.option("--yes", "-y", "force_delete", default=False, is_flag=True,
-        help="Delete files without asking")
+              help="Delete files without asking")
 @click.argument("ephemerals", type=Path(readable=True), nargs=-1)
 def verify(ephemerals, resource, informat, force_delete, rm_script, move_dest, pixel_distance, distance_file, only_check_exists):
     """
@@ -380,7 +378,6 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
         )
         steps.append(TeeStep(recoded_pipe))
 
-
     # do mosaicing
     steps.append(
         TSPipeline(GigavisionMosaicStep(
@@ -424,7 +421,7 @@ def cp(informat, bundle, input, output, start_time, start_date, end_time, end_da
     tfilter = TimeFilter(start_date, end_date, start_time, end_time)
     if interval is not None:
         raise NotImplementedError("haven't done interval restriction yet")
-    output =  TimeStream(output, bundle_level=bundle)
+    output = TimeStream(output, bundle_level=bundle)
     for image in tqdm(TimeStream(input, format=informat, timefilter=tfilter)):
         with CatchSignalThenExit():
             output.write(image)
@@ -442,7 +439,7 @@ def cp(informat, bundle, input, output, start_time, start_date, end_time, end_da
 @click.argument("input", nargs=-1)
 def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpus):
     from pyts2.scripts.imgscan import find_files, is_image, iso8601ify, scanimage, timestreamify
-    files = [x for x in tqdm(find_files(*input), desc="Find images", unit=" files")  if is_image(x)]
+    files = [x for x in tqdm(find_files(*input), desc="Find images", unit=" files") if is_image(x)]
     print(f"Found {len(files)} files.", file=stderr)
 
     # set up tsv
@@ -469,11 +466,11 @@ def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpu
 
 @tstk_main.command()
 @click.option("--rm-script", "-s", default=None, type=Path(writable=True),
-        help="Write a bash script that removes files to here")
+              help="Write a bash script that removes files to here")
 @click.option("--move-dest", "-m", default=None, type=Path(writable=True), metavar="DEST",
-        help="Don't remove, move to DEST")
+              help="Don't remove, move to DEST")
 @click.option("--yes", "-y", "force_delete", default=False, is_flag=True,
-        help="Delete files without asking")
+              help="Delete files without asking")
 @click.argument("input")
 def findpairs(input, rm_script, move_dest, force_delete):
     """Finds pairs of XXXXXX.{jpg,cr2} or similar with identical metadata & filename."""

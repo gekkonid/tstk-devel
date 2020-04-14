@@ -18,6 +18,7 @@ from sys import stderr, stdout, stdin
 
 class GigavisionMosaicStep(PipelineStep):
     """Class to piece together composite images"""
+
     def __init__(self, dims, output, subimgres="200x300", order="colsright", output_format="jpg",
                  centrecrop=None, rm_script=None, mv_destination=None):
         self.superdim = XbyY2XY(dims)
@@ -42,9 +43,9 @@ class GigavisionMosaicStep(PipelineStep):
         if self.current_datetime is not None:
             inst = TSInstant(self.current_datetime)
             composite_img = TimestreamImage(
-                filename = f"{str(inst)}.{self.output_format}",
-                instant = inst,
-                pixels = self.current_pixels,
+                filename=f"{str(inst)}.{self.output_format}",
+                instant=inst,
+                pixels=self.current_pixels,
             )
             composite_img = self.image_encoder.process_file(composite_img)
             self.output.write(composite_img)
@@ -67,9 +68,9 @@ class GigavisionMosaicStep(PipelineStep):
             composite_img = self.write_current()
             self.current_datetime = file.instant.datetime
             self.current_pixels = np.zeros(
-                    (self.superdim[0]*self.subimgres[0],
-                     self.superdim[1]*self.subimgres[1], 3),
-                    dtype=np.float32
+                (self.superdim[0]*self.subimgres[0],
+                 self.superdim[1]*self.subimgres[1], 3),
+                dtype=np.float32
             )
 
         try:
@@ -85,7 +86,7 @@ class GigavisionMosaicStep(PipelineStep):
         pixels = file.pixels
         if self.centrecrop is not None:
             h, w, _ = pixels.shape
-            s  = self.centrecrop * 0.5  # half scale factor
+            s = self.centrecrop * 0.5  # half scale factor
             t, b = int(h*s), int(h*(1-s))
             l, r = int(w*s), int(w*(1-s))
             pixels = pixels[t:b, l:r, :]
@@ -96,4 +97,3 @@ class GigavisionMosaicStep(PipelineStep):
 
     def finish(self):
         self.write_current()
-

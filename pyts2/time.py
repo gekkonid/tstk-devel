@@ -63,7 +63,7 @@ class TSInstant(object):
 
     def __init__(self, datetime, index=None):
         self.datetime = parse_date(datetime)
-        self.index=index
+        self.index = index
 
     @property
     def index(self):
@@ -87,7 +87,6 @@ class TSInstant(object):
     def __str__(self):
         idx = f"_{self.index}" if self.index is not None else ""
         return f"{self.datetime.strftime('%Y_%m_%d_%H_%M_%S')}{idx}"
-
 
     def __eq__(self, other):
         return (self.datetime, self.index) == \
@@ -154,6 +153,7 @@ class TSInstant(object):
         datetime = parse_date(dt)
 
         return TSInstant(datetime, index)
+
 
 def parse_partial_date(datestr, max=False):
     m = re.search(r"_?(?P<Y>\d\d\d\d)(?:_(?P<m>\d\d)(?:_(?P<d>\d\d))?(?:_(?P<H>\d\d))?(?:_(?P<M>\d\d))?(?:_(?P<S>\d\d))?)?",

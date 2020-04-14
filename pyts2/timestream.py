@@ -86,6 +86,7 @@ class Fetcher(object):
 
 class ZipContentFetcher(Fetcher):
     _fetchtype = 'zip'
+
     def __init__(self, archivepath, pathinzip):
         self.archivepath = archivepath
         self.pathinzip = pathinzip
@@ -106,6 +107,7 @@ class ZipContentFetcher(Fetcher):
 
 class TarContentFetcher(Fetcher):
     _fetchtype = 'tar'
+
     def __init__(self, archivepath, pathintar):
         self.archivepath = archivepath
         self.pathintar = pathintar
@@ -143,6 +145,7 @@ class FileContentFetcher(Fetcher):
 
 class TimestreamFile(object):
     '''A container class for files in timestreams'''
+
     def __init__(self, instant=None, filename=None, fetcher=None, content=None, report=None, format=None):
         self.instant = instant
         self.filename = filename
@@ -181,8 +184,8 @@ class TimestreamFile(object):
 
     # TODO: work out where this should go. be careful, as setting here should sync to
     # disc perhaps?
-    #@content.setter
-    #def _set_content(self, content):
+    # @content.setter
+    # def _set_content(self, content):
     #    self._content = content
 
     @classmethod
@@ -367,7 +370,8 @@ class TimeStream(object):
                             self._files[op.basename(entry.name)] = TarContentFetcher(path, entry.name)
                             yield TimestreamFile(filename=entry.name,
                                                  fetcher=TarContentFetcher(path, entry.name))
-            else: raise ValueError(f"'{path}' appears not to be an archive")
+            else:
+                raise ValueError(f"'{path}' appears not to be an archive")
 
         def is_archive(path):
             if op.isdir(path):
@@ -399,12 +403,11 @@ class TimeStream(object):
                     if path_is_timestream_file(path, extensions=self.format):
                         if self.timefilter is not None and not self.timefilter.partial_within(file):
                             continue
-                        fetcher =  FileContentFetcher(path)
+                        fetcher = FileContentFetcher(path)
                         self._files[op.basename(path)] = fetcher
                         yield TimestreamFile(filename=op.basename(path), fetcher=fetcher)
                 except Exception as exc:
                     print(f"\n{exc.__class__.__name__}: {str(exc)} at '{path}'\n", file=stderr)
-
 
     def _timestream_path(self, file):
         """Gets path for timestream file."""

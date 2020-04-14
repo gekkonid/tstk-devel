@@ -88,43 +88,43 @@ def test_parsepartial():
     tmax = dt.time.max
 
     assert parse_partial_date("2019", max=False) == \
-           (dmin.replace(2019), None)
+        (dmin.replace(2019), None)
     assert parse_partial_date("2019", max=True) == \
-           (dmax.replace(2019), None)
+        (dmax.replace(2019), None)
     assert parse_partial_date("blahname_2019_blahindex.blah", max=True) == \
-           (dmax.replace(2019), None)
+        (dmax.replace(2019), None)
 
     assert parse_partial_date("2019_12", max=False) == \
-           (dmin.replace(2019, 12), None)
+        (dmin.replace(2019, 12), None)
     assert parse_partial_date("2019_12", max=True) == \
-           (dmax.replace(2019, 12), None)
+        (dmax.replace(2019, 12), None)
     assert parse_partial_date("blahname_2019_12_blahindex.blah", max=True) == \
-           (dmax.replace(2019, 12), None)
+        (dmax.replace(2019, 12), None)
 
     assert parse_partial_date("2019_12_31", max=False) == \
-           (dmin.replace(2019, 12, 31), None)
+        (dmin.replace(2019, 12, 31), None)
     assert parse_partial_date("2019_12_31", max=True) == \
-           (dmax.replace(2019, 12, 31), None)
+        (dmax.replace(2019, 12, 31), None)
     assert parse_partial_date("blahname_2019_12_31_blahindex.blah", max=True) == \
-           (dmax.replace(2019, 12, 31), None)
+        (dmax.replace(2019, 12, 31), None)
 
     assert parse_partial_date("2019_12_31_23", max=False) == \
-           (dmin.replace(2019, 12, 31), tmin.replace(23))
+        (dmin.replace(2019, 12, 31), tmin.replace(23))
     assert parse_partial_date("2019_12_31_23", max=True) == \
-           (dmax.replace(2019, 12, 31), tmax.replace(23))
+        (dmax.replace(2019, 12, 31), tmax.replace(23))
     assert parse_partial_date("blahname_2019_12_31_23_blahindex.blah", max=True) == \
-           (dmax.replace(2019, 12, 31), tmax.replace(23))
+        (dmax.replace(2019, 12, 31), tmax.replace(23))
 
     assert parse_partial_date("2019_12_31_23_59", max=False) == \
-           (dmin.replace(2019, 12, 31), tmin.replace(23, 59))
+        (dmin.replace(2019, 12, 31), tmin.replace(23, 59))
     assert parse_partial_date("2019_12_31_23_59", max=True) == \
-           (dmax.replace(2019, 12, 31), tmax.replace(23, 59))
+        (dmax.replace(2019, 12, 31), tmax.replace(23, 59))
     assert parse_partial_date("blahname_2019_12_31_23_59_blahindex.blah", max=True) == \
-           (dmax.replace(2019, 12, 31), tmax.replace(23, 59))
+        (dmax.replace(2019, 12, 31), tmax.replace(23, 59))
 
     assert parse_partial_date("2019_12_31_23_59_00", max=False) == \
-           (dmin.replace(2019, 12, 31), tmin.replace(23, 59, 00))
+        (dmin.replace(2019, 12, 31), tmin.replace(23, 59, 00))
     assert parse_partial_date("2019_12_31_23_59_00", max=True) == \
-           (dmax.replace(2019, 12, 31), tmax.replace(23, 59, 00))
+        (dmax.replace(2019, 12, 31), tmax.replace(23, 59, 00))
     assert parse_partial_date("blahname_2019_12_31_23_59_00_blahindex.blah", max=True) == \
-           (dmax.replace(2019, 12, 31), tmax.replace(23, 59, 00))
+        (dmax.replace(2019, 12, 31), tmax.replace(23, 59, 00))

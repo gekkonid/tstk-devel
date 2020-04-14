@@ -38,7 +38,7 @@ class TSPipeline(object):
         if not hasattr(step, "process_file"):
             raise ValueError(f"step doesn't seem to be a pipeline step: {step}")
         self.steps.append(step)
-        return self # so one can chain calls
+        return self  # so one can chain calls
 
     def process_file(self, file):
         # This should mirror PipelineStep, so an entire pipeline can function
@@ -79,7 +79,6 @@ class TSPipeline(object):
                 self.report.record(file.instant, **file.report)
                 self.n += 1
                 yield file
-
 
     def __call__(self, *args, **kwargs):
         yield from self.process(*args, **kwargs)
@@ -134,7 +133,7 @@ class ResultRecorder(object):
                 for field in self.fields:
                     val = record.get(field, None)
                     if val is None:
-                        val="NA"
+                        val = "NA"
                     if isinstance(val, str):
                         val = re.sub(r"\s+", " ", val, re.IGNORECASE | re.MULTILINE)
                     line.append(val)
@@ -196,6 +195,7 @@ class TeeStep(PipelineStep):
 
 class WriteFileStep(PipelineStep):
     """Write each file to output, without changing the file"""
+
     def __init__(self, output):
         self.output = output
 

@@ -27,6 +27,7 @@ def geom2rowcol(geom):
 
 class GenericDownsizerStep(PipelineStep):
     """Handles boilerplate of chosing sizes etc. for ResizeImageStep/CropCentreStep"""
+
     def __init__(self, rows=None, cols=None, scale=None, geom=None):
         """Initialise step with size. Use None for one dimension to keep aspect ratio"""
         if geom is not None:
@@ -73,14 +74,14 @@ class ResizeImageStep(GenericDownsizerStep):
                                               order=3, anti_aliasing=True)
         else:
             # slower scikit-image method
-            #newpixels = ski.transform.resize(file.pixels, np.round((rows, cols)),
+            # newpixels = ski.transform.resize(file.pixels, np.round((rows, cols)),
             #                                 order=3, anti_aliasing=True)
 
             # opencv does rows/cols backwards as (width, height)
             rows, cols = self._new_imagesize(file.pixels.shape)
             if len(file.pixels.shape) == 3:
                 newpixels = cv2.resize(file.bgr_8, dsize=(cols, rows),
-                                       interpolation=cv2.INTER_LANCZOS4)[:, :, ::-1] # back to rgb
+                                       interpolation=cv2.INTER_LANCZOS4)[:, :, ::-1]  # back to rgb
             elif len(file.pixels.shape) == 2:
                 # handle greyscale images better
                 newpixels = cv2.resize(file.bgr_8, dsize=(cols, rows),

@@ -35,7 +35,7 @@ def test_pipeline(data):
 def test_encodedecodestep():
     def encode_decode_roundtrip(format):
         #pixels = np.array([[[255,255,255], [0, 0, 0]]], dtype="u1")
-        pixels = np.array([[[1.,1.,1.], [0., 0., 0.]]], dtype=float)
+        pixels = np.array([[[1., 1., 1.], [0., 0., 0.]]], dtype=float)
         instant = TSInstant.now()
         orig_image = TimestreamImage(instant=instant, pixels=pixels,
                                      filename="pretend.file")
@@ -71,17 +71,17 @@ def test_decoderaw(largedata):
     assert decoded_image.instant == TSInstant("2019_04_11_04_00_00")
 
 
-
 def test_imagepixels():
-    pixels = np.array([[[1.,1.,1.], [0., 0., 0.]]], dtype=float)
+    pixels = np.array([[[1., 1., 1.], [0., 0., 0.]]], dtype=float)
     instant = TSInstant.now()
     image = TimestreamImage(instant=instant, pixels=pixels,
-                           filename="pretend.file")
+                            filename="pretend.file")
 
     assert np.array_equal(image.pixels, pixels)
-    assert np.array_equal(image.rgb_8, np.array([[[255,255,255], [0, 0, 0]]], dtype="u1"))
+    assert np.array_equal(image.rgb_8, np.array([[[255, 255, 255], [0, 0, 0]]], dtype="u1"))
     Lab = np.array([[[100, 0, 0], [0, 0, 0]]])
     assert np.allclose(image.Lab, Lab, atol=0.01)  # the LAB above is rounded
+
 
 def test_pipeline(data, tmpdir):
     def dotest(ncpus):

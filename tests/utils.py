@@ -26,6 +26,7 @@ def wget(url, directory):
 def getdatapath(path):
     return f"tests/data/{path}"
 
+
 @pytest.fixture
 def data():
     return getdatapath
@@ -39,6 +40,6 @@ def largedata(request):
         porcelain.clone("https://github.com/appf-anu/large_testdata.git", datadir, checkout=True)
     # This makes the tests super slow, and can overwrite changes. If you need to update testdata,
     # just delete the data directory and it will be re-cloned.
-    #else:
+    # else:
     #    porcelain.pull(datadir, "https://github.com/appf-anu/large_testdata.git")
     return lambda path: f"{datadir}/{path}"

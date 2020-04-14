@@ -19,6 +19,7 @@ EXIF_BLACKLIST = [
     ('Exif', piexif.ExifIFD.InteroperabilityTag),
 ]
 
+
 def find_all(basedir):
     pairs = defaultdict(list)
     for root, dirs, files in os.walk(basedir):
@@ -33,23 +34,24 @@ def find_all(basedir):
         if len(files) == 2:
             yield files
 
-def exif_matches(file1, file2):
-        ex1 = piexif.load(file1)
-        ex2 = piexif.load(file2)
-        for group in ['Exif',]:
-            allkeys = set(list(ex1[group].keys()) + list(ex2[group].keys()))
-            for key in allkeys:
-                if (group, key) in EXIF_BLACKLIST:
-                    continue
-                try:
-                    f1 = ex1[group][key]
-                    f2 = ex2[group][key]
-                except KeyError:
-                    return False
 
-                if f1 != f2:
-                    return False
-        return True
+def exif_matches(file1, file2):
+    ex1 = piexif.load(file1)
+    ex2 = piexif.load(file2)
+    for group in ['Exif', ]:
+        allkeys = set(list(ex1[group].keys()) + list(ex2[group].keys()))
+        for key in allkeys:
+            if (group, key) in EXIF_BLACKLIST:
+                continue
+            try:
+                f1 = ex1[group][key]
+                f2 = ex2[group][key]
+            except KeyError:
+                return False
+
+            if f1 != f2:
+                return False
+    return True
 
 
 def findpairs_main(base, rm_script, move_dest, force_delete, jpeg=True):
@@ -65,4 +67,3 @@ def findpairs_main(base, rm_script, move_dest, force_delete, jpeg=True):
                         print("WARNING: no jpg in pair", f1, f2, file=stderr)
                 else:
                     print(f1, f2, sep='\t')
-

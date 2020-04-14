@@ -7,12 +7,13 @@ from .data import *
 
 import datetime as dt
 
+
 def test_read(data):
     timestreams = [
         data("timestreams/flat"),
         data("timestreams/flat.zip"),
         data("timestreams/flat.tar"),
-        data("timestreams/nested/"), # with trailing slash
+        data("timestreams/nested/"),  # with trailing slash
         data("timestreams/nested"),
         data("timestreams/nested.zip"),
         data("timestreams/nested.tar"),
@@ -129,7 +130,7 @@ def test_dict(data):
 
 def test_read_with_filter(data):
     timestreams = [
-        data("timestreams/nested/"), # with trailing slash
+        data("timestreams/nested/"),  # with trailing slash
         data("timestreams/nested"),
         data("timestreams/nested.zip"),
         data("timestreams/nested.tar"),
@@ -148,6 +149,7 @@ def test_read_with_filter(data):
             else:
                 assert file.instant in expect_insts
         assert list(sorted(stream.instants)) == expect_insts
+
 
 def test_zip_overwrite(data, tmpdir):
     in_stream = TimeStream(data("timestreams/nested"))
@@ -205,4 +207,3 @@ def test_subsecond_output(tmpdir, data):
 
         expect = {str(tmpdir.join(subdir, x)) for x in outputs[add_subsec]}
         assert set(find_files(tmpdir.join(subdir))) == expect
-

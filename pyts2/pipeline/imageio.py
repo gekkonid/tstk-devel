@@ -42,11 +42,12 @@ class DecodeImageFileStep(PipelineStep):
         "png": {},
         "cr2": {
             "use_camera_wb": True,
-            "median_filter_passes": 0, # no median filtering after demosaicing
+            "median_filter_passes": 0,  # no median filtering after demosaicing
             "output_bps": 16,
-            "auto_bright_thr": 0.001, # Use auto brightness, but only allow clipping 0.1%
+            "auto_bright_thr": 0.001,  # Use auto brightness, but only allow clipping 0.1%
         },
     }
+
     def __init__(self, decode_options=None, process_raws=True):
         self.decode_options = self.default_options
         if decode_options:
@@ -71,7 +72,7 @@ class EncodeImageFileStep(PipelineStep):
     """Pipeline step to encode pixels to a file('s bytes)."""
     default_options = {
         "jpg": {
-            "format": "JPEG-PIL", # engine
+            "format": "JPEG-PIL",  # engine
             "quality": 95,
             "progressive": True,
             "optimize": True,
@@ -83,7 +84,7 @@ class EncodeImageFileStep(PipelineStep):
             "compression": "tiff_lzw"
         },
         "png": {
-            "format": "PNG", # engine
+            "format": "PNG",  # engine
             "optimize": True,
         },
     }
@@ -122,8 +123,8 @@ class EncodeImageFileStep(PipelineStep):
             content = imageio.imwrite('<bytes>', file.rgb_8, **self.options)
         # reinstatiate and demote to a TimestreamFile
         return TimestreamFile(content=content, filename=filename,
-                                instant=file.instant, report=file.report,
-                                format=self.format)
+                              instant=file.instant, report=file.report,
+                              format=self.format)
 
 
 class TimestreamImage(TimestreamFile):
@@ -158,7 +159,7 @@ class TimestreamImage(TimestreamFile):
 
     @property
     def bgr_8(self):
-        return self.rgb_8[:, :, ::-1] # RGB->BGR
+        return self.rgb_8[:, :, ::-1]  # RGB->BGR
 
     @property
     def Lab(self):

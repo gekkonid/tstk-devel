@@ -23,9 +23,11 @@ import re
 import traceback
 from shlex import quote
 
+
 def tb(do=True):
     if do:
         traceback.print_exc(file=stderr)
+
 
 def getncpu():
     return int(os.environ.get("PBS_NCPUS", mp.cpu_count()))
@@ -35,6 +37,7 @@ def get_exif_time(imgpath):
     exif = piexif.load(imgpath)
     dstr = exif["Exif"][piexif.ExifIFD.DateTimeOriginal].decode("utf-8")
     return datetime.datetime.strptime(dstr, "%Y:%m:%d %H:%M:%S")
+
 
 def loadimage(imgpath):
     if imgpath.lower().endswith("cr2"):
@@ -56,11 +59,14 @@ def re_extract(string, pattern):
     if m is not None:
         return m.group(1)
 
+
 def re_chamber(string):
     return re_extract(string, r'(GC\d+[LR])')
 
+
 def re_experiment(string):
     return re_extract(string, r'(BVZ\d+|ATK\d+|TR\d+)')
+
 
 def re_time(string):
     dstr = re_extract(string, r'(\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d)')
@@ -108,8 +114,8 @@ def scanimage(imgpath):
             raise ValueError("Bad image load: see https://github.com/python-pillow/Pillow/issues/3863")
         pixel_mean = np.mean(pixels)
         codes = zbarlight.scan_codes('qrcode', Image.fromarray(pixels))
-        if codes is not None:                                                                                                                                                                                                           
-            codes = ';'.join(sorted(x.decode('utf8') for x in codes))                                                                                                                                                                  
+        if codes is not None:
+            codes = ';'.join(sorted(x.decode('utf8') for x in codes))
             qr_chamber = re_chamber(codes)
             qr_experiment = re_experiment(codes)
     except Exception as exc:
@@ -153,11 +159,11 @@ def scanimage(imgpath):
         "error": error,
     }
 
+
 def timestreamify(dat, dest):
     time = None
     chamber = "Unknown"
     experiment = "Unknown"
-
 
     # set above in reverse priority order
     if dat["fn_chamber"] is not None:
@@ -166,7 +172,7 @@ def timestreamify(dat, dest):
         chamber = dat["qr_chamber"]
     if dat["dir_chamber"] is not None:
         chamber = dat["dir_chamber"]
-    
+
     if dat["fn_experiment"] is not None:
         experiment = dat["fn_experiment"]
     if dat["qr_experiment"] is not None:
@@ -192,6 +198,7 @@ def timestreamify(dat, dest):
     destdir = dirname(destpath)
     cmd = f"mkdir -p {quote(destdir)} && mv -nv {quote(imgpath)} {quote(destpath)}"
     return cmd
+
 
 def iso8601ify(dat):
     ret = {}

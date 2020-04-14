@@ -66,6 +66,7 @@ class CatchSignalThenExit(object):
         if self.exit and self.caught:
             sys.exit(self.returncode)
 
+
 def XbyY2XY(xbyy):
     """Converts a string like 10x20 into a tuple: (10, 20)
     >>> XbyY2XY("10x20")
