@@ -29,6 +29,8 @@ import time
 import errno
 import random
 
+DEFAULT_TIMEOUT = int(os.environ.get("TSTK_TIMEOUT", 10))
+
 class FileLockException(Exception):
     pass
 
@@ -38,7 +40,7 @@ class FileLock(object):
         compatible as it doesn't rely on msvcrt or fcntl for the locking.
     """
 
-    def __init__(self, file_name, timeout=10, delay=.05):
+    def __init__(self, file_name, timeout=DEFAULT_TIMEOUT, delay=.05):
         """ Prepare the file locker. Specify the file to lock and optionally
             the maximum timeout and the delay between each attempt to lock.
         """
@@ -68,9 +70,9 @@ class FileLock(object):
                 if e.errno != errno.EEXIST:
                     raise
                 if self.timeout is None:
-                    raise FileLockException("Could not acquire lock on {}".format(self.file_name))
+                    raise FileLockException(f"Could not acquire lock on {self.file_name}")
                 if (time.time() - start_time) >= self.timeout:
-                    raise FileLockException("Timeout occured.")
+                    raise FileLockException(f"Timeout occured after {self.timeout} seconds on {self.file_name}.")
                 time.sleep(self.delay)
 
 
