@@ -19,12 +19,11 @@ from pyts2.timestream import FileContentFetcher
 from pyts2.time import TimeFilter
 from pyts2.pipeline import *
 from pyts2.utils import CatchSignalThenExit
+from pyts2.removalist import Removalist
 
-import argparse as ap
 
 from os.path import dirname, basename, splitext, getsize, realpath
-import io
-from sys import stdout, stderr, stdin, exit
+from sys import stdout, stderr, stdin, exit  # noqa
 from csv import DictWriter
 import datetime
 import argparse
@@ -33,15 +32,13 @@ import re
 import traceback
 from shlex import quote
 import os
-from os.path import realpath, basename
 import shutil
 import sys
-import datetime
-import traceback
 
 
 def getncpu():
     return int(os.environ.get("PBS_NCPUS", mp.cpu_count()))
+
 
 def valid_date(s):
     try:
@@ -234,12 +231,12 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
         help="Fuzzily match images based on distance in pixel units. Formula is abs(X - Y)/maxpixelval/npixel, i.e. 0 for no distance and 1 for all white vs all black.")
 @click.option("--distance-file", default=None, type=Path(writable=True),
         help="Write log of each ephemeral file's distance to tsv file")
+@click.option("--only-check-exists", default=False, is_flag=True,
+        help="Only check that a file at the same timepoint exists.")
 @click.option("--rm-script", "-s", default=None, type=Path(writable=True),
         help="Write a bash script that removes files to here")
 @click.option("--move-dest", "-m", default=None, type=Path(writable=True), metavar="DEST",
         help="Don't remove, move to DEST")
-@click.option("--only-check-exists", default=False, is_flag=True,
-        help="Only check that a file at the same timepoint exists.")
 @click.option("--yes", "-y", "force_delete", default=False, is_flag=True,
         help="Delete files without asking")
 @click.argument("ephemerals", type=Path(readable=True), nargs=-1)
@@ -249,90 +246,53 @@ def verify(ephemerals, resource, informat, force_delete, rm_script, move_dest, p
     """
     resource_ts = TimeStream(resource, format=informat)
     decoder = DecodeImageFileStep()
-    to_delete = []
     resource_ts.index()
 
     if rm_script is not None:
         with open(rm_script, "w") as fh:
             print("# rmscript for", *ephemerals, file=fh)
 
-    def do_delete():
+    with Removalist(rm_script=rm_script, mv_dest=move_dest, force=force_delete) as rmer:
         if distance_file is not None:
-            distance_file.flush()
-        if rm_script is not None:
-            with open(rm_script, "a") as fh:
-                cmd = "rm -vf" if move_dest is None else f"mv -n -t {move_dest}"
-                for f in to_delete:
-                    print(cmd, realpath(f), file=fh)
-            return
-        if not force_delete:
-            if move_dest is not None:
-                click.echo(f"Will move the following files to {move_dest}:")
-            else:
-                click.echo("Will delete the following files:")
-            for f in to_delete:
-                click.echo(f"\t{f}")
-        if force_delete or click.confirm("Is that OK?"):
-            for f in to_delete:
-                try:
-                    if move_dest is None:
-                        os.unlink(f)
-                    else:
-                        os.makedirs(move_dest, exist_ok=True)
-                        shutil.move(f, move_dest)
-                except Exception as exc:
-                    tqdm.write(f"Error deleting {f}: {str(exc)}")
-                    if stderr.isatty():
-                        traceback.print_exc(file=stderr)
-            tqdm.write(f"Deleted {len(to_delete)} files")
-
-    if distance_file is not None:
-        distance_file = open(distance_file, "w")
-        print("ephemeral_image\tresource_image\tdistance", file=distance_file)
-    for ephemeral in ephemerals:
-        click.echo(f"Crawling ephemeral timestream: {ephemeral}")
-        ephemeral_ts = TimeStream(ephemeral, format=informat)
-        try:
-            for image in tqdm(ephemeral_ts, unit=" files"):
-                if len(to_delete) > 0 and len(to_delete) % 1000 == 0:
-                    do_delete()
-                    to_delete = []
-                try:
-                    res_img = resource_ts.getinstant(image.instant)
-                    if not isinstance(image.fetcher, FileContentFetcher):
-                        click.echo(f"WARNING: can't delete {image.filename} as it is bundled", err=True)
-                        continue
-                    if only_check_exists:
-                        to_delete.append(image.fetcher.pathondisk)
-                    elif pixel_distance is not None:
-                        eimg = decoder.process_file(image)
-                        rimg = decoder.process_file(res_img)
-                        if eimg.pixels.shape != rimg.pixels.shape:
-                            if distance_file is not None:
-                                print(basename(image.filename), basename(res_img.filename), "NA", file=distance_file)
+            distance_file = open(distance_file, "w")
+            print("ephemeral_image\tresource_image\tdistance", file=distance_file)
+        for ephemeral in ephemerals:
+            click.echo(f"Crawling ephemeral timestream: {ephemeral}")
+            ephemeral_ts = TimeStream(ephemeral, format=informat)
+            try:
+                for image in tqdm(ephemeral_ts, unit=" files"):
+                    try:
+                        res_img = resource_ts.getinstant(image.instant)
+                        if not isinstance(image.fetcher, FileContentFetcher):
+                            click.echo(f"WARNING: can't delete {image.filename} as it is bundled", err=True)
                             continue
-                        dist = np.mean(abs(eimg.pixels - rimg.pixels))
+                        if only_check_exists:
+                            rmer.remove(image.fetcher.pathondisk)
+                        elif pixel_distance is not None:
+                            eimg = decoder.process_file(image)
+                            rimg = decoder.process_file(res_img)
+                            if eimg.pixels.shape != rimg.pixels.shape:
+                                if distance_file is not None:
+                                    print(basename(image.filename), basename(res_img.filename), "NA", file=distance_file)
+                                continue
+                            dist = np.mean(abs(eimg.pixels - rimg.pixels))
+                            if distance_file is not None:
+                                print(basename(image.filename), basename(res_img.filename), dist, file=distance_file)
+                            if dist < pixel_distance:
+                                rmer.remove(realpath(image.fetcher.pathondisk))
+                        elif image.md5sum == res_img.md5sum:
+                            rmer.remove(realpath(image.fetcher.pathondisk))
+                    except KeyError:
+                        tqdm.write(f"{image.instant} not in {resource}")
                         if distance_file is not None:
-                            print(basename(image.filename), basename(res_img.filename), dist, file=distance_file)
-                        if dist < pixel_distance:
-                            to_delete.append(image.fetcher.pathondisk)
-                    elif image.md5sum == res_img.md5sum:
-                        to_delete.append(image.fetcher.pathondisk)
-                except KeyError:
-                    tqdm.write(f"{image.instant} not in {resource}")
-                    if distance_file is not None:
-                        print(basename(image.filename), "", "", file=distance_file)
-                except Exception as exc:
-                    click.echo(f"WARNING: error in resources lookup of {image.filename}: {str(exc)}", err=True)
-                    if stderr.isatty():
-                        traceback.print_exc(file=stderr)
-        except KeyboardInterrupt:
-            print("\n\nExiting cleanly", file=stderr)
-            break
-        finally:
-            do_delete()
-            to_delete = []
-    do_delete()
+                            print(basename(image.filename), "", "", file=distance_file)
+                    except Exception as exc:
+                        click.echo(f"WARNING: error in resources lookup of {image.filename}: {str(exc)}", err=True)
+                        if stderr.isatty():
+                            traceback.print_exc(file=stderr)
+            except KeyboardInterrupt:
+                print("\n\nExiting cleanly", file=stderr)
+                break
     if distance_file is not None:
         distance_file.close()
 
@@ -481,7 +441,7 @@ def cp(informat, bundle, input, output, start_time, start_date, end_time, end_da
               help="-t script moves files to DIR")
 @click.argument("input", nargs=-1)
 def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpus):
-    from pyts2.imgscan import find_files, is_image, iso8601ify, scanimage, timestreamify
+    from pyts2.scripts.imgscan import find_files, is_image, iso8601ify, scanimage, timestreamify
     files = [x for x in tqdm(find_files(*input), desc="Find images", unit=" files")  if is_image(x)]
     print(f"Found {len(files)} files.", file=stderr)
 
@@ -505,6 +465,20 @@ def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpu
                 timestreamify_script.flush()
     pool.close()
     print(f"Finished: {len(files)} images, {err} errors.", file=stderr)
+
+
+@tstk_main.command()
+@click.option("--rm-script", "-s", default=None, type=Path(writable=True),
+        help="Write a bash script that removes files to here")
+@click.option("--move-dest", "-m", default=None, type=Path(writable=True), metavar="DEST",
+        help="Don't remove, move to DEST")
+@click.option("--yes", "-y", "force_delete", default=False, is_flag=True,
+        help="Delete files without asking")
+@click.argument("input")
+def findpairs(input, rm_script, move_dest, force_delete):
+    """Finds pairs of XXXXXX.{jpg,cr2} or similar with identical metadata & filename."""
+    from pyts2.scripts.findpairs import findpairs_main
+    findpairs_main(input, rm_script, move_dest, force_delete)
 
 
 if __name__ == "__main__":

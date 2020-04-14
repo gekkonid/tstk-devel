@@ -19,7 +19,6 @@ from pathlib import Path
 def nowarnings(func):
     """Decorator to always ignore warnings generated with `func`."""
     def wrapped(*args, **kwargs):
-        import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             return func(*args, **kwargs)
