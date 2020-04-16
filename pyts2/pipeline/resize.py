@@ -8,9 +8,8 @@ from .base import *
 from .imageio import *
 
 import numpy as np
-import zbarlight
-import skimage as ski
 import cv2
+from skimage.transform import rescale
 import re
 
 
@@ -70,8 +69,7 @@ class ResizeImageStep(GenericDownsizerStep):
         assert hasattr(file, "pixels")  # TODO proper check
 
         if self.scale is not None:
-            newpixels = ski.transform.rescale(file.pixels, self.scale,
-                                              order=3, anti_aliasing=True)
+            newpixels = rescale(file.pixels, self.scale, order=3, anti_aliasing=True)
         else:
             # slower scikit-image method
             # newpixels = ski.transform.resize(file.pixels, np.round((rows, cols)),

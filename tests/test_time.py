@@ -1,3 +1,4 @@
+import pytest
 from pyts2.time import TSInstant, TimeFilter, parse_partial_date
 import datetime as dt
 

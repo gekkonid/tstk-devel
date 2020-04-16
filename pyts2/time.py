@@ -189,7 +189,7 @@ class TimeFilter(object):
             if isinstance(d, datetime.date):
                 return d
             elif isinstance(d, TSInstant):
-                return time.datetime.date()
+                return d.datetime.date()
             elif isinstance(d, datetime.datetime):
                 return d.date()
             elif isinstance(d, str):
