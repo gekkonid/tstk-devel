@@ -192,9 +192,9 @@ def timestreamify(dat, dest):
     fn, ext = splitext(basename(imgpath))
 
     if time is None:
-        destpath = f"{dest}/{experiment}/{chamber}/{fn}{ext}"
+        destpath = f"{dest}/{chamber}/{experiment}/{fn}{ext}"
     else:
-        destpath = time.strftime(f"{dest}/{experiment}/{chamber}/%Y/%Y_%m/%Y_%m_%d/%Y_%m_%d_%H/{experiment}~{chamber}_%Y_%m_%d_%H_%M_%S{ext}")
+        destpath = time.strftime(f"{dest}/{chamber}/{experiment}/%Y/%Y_%m/%Y_%m_%d/%Y_%m_%d_%H/{experiment}~{chamber}_%Y_%m_%d_%H_%M_%S{ext}")
     destdir = dirname(destpath)
     cmd = f"mkdir -p {quote(destdir)} && mv -nv {quote(imgpath)} {quote(destpath)}"
     return cmd
