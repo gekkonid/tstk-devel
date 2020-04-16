@@ -264,6 +264,7 @@ class TimeStream(object):
             self._index_file = op.join(self.path, "index.json")
 
     def open(self, path, format=None):
+        path = str(path).rstrip("/")
         if self.name is None:
             self.name = op.basename(path)
             for ext in [".tar", ".zip", f".{format}"]:
@@ -277,6 +278,7 @@ class TimeStream(object):
                 format = "jpg"
         self.format = format
         self.path = path
+        assert(self.name is not None)
 
     def index(self, progress=True):
         if len(self._instants) == 0 or len(self._files) == 0:
@@ -323,12 +325,62 @@ class TimeStream(object):
         self.index(progress=False)
         return self._instants.keys()
 
+    def _direct_time_index(self, value):
+        try:
+            instant = value
+            if isinstance(value, TimestreamFile):
+                instant = value.instant
+            assert(isinstance(instant, TSInstant))
+
+            idxstr = ""
+            if instant.index is not None:
+                idxstr = "_" + str(instant.index)
+
+            subpath = instant.datetime.strftime(f"%Y/%Y_%m/%Y_%m_%d/%Y_%m_%d_%H/{self.name}_%Y_%m_%d_%H_%M_%S{idxstr}.{self.format}")
+            zip_paths = [
+                f"{self.path}/%Y/%Y_%m/%Y_%m_%d/%Y_%m_%d_%H/{self.name}_%Y_%m_%d_%H_%M_%S.{self.format}.zip",
+                f"{self.path}/%Y/%Y_%m/%Y_%m_%d/%Y_%m_%d_%H/{self.name}_%Y_%m_%d_%H_%M.{self.format}.zip",
+                f"{self.path}/%Y/%Y_%m/%Y_%m_%d/{self.name}_%Y_%m_%d_%H.{self.format}.zip",
+                f"{self.path}/%Y/%Y_%m/{self.name}_%Y_%m_%d.{self.format}.zip",
+                f"{self.path}/%Y/{self.name}_%Y_%m.{self.format}.zip",
+                f"{self.path}/{self.name}_%Y.{self.format}.zip",
+                f"{self.path}",
+            ]
+            file_path = op.join(self.path, subpath)
+            if op.isfile(file_path):
+                f = FileContentFetcher(file_path)
+                self._files[f.filename] = f
+                self._instants[f.instant] = f
+                return f
+            for zip_path in zip_paths:
+                zip_path = instant.datetime.strftime(zip_path)
+                file_path = f"{self.name}/{subpath}"
+                if not op.isfile(zip_path):
+                    continue
+                with zipfile.ZipFile(str(zip_path)) as zip:
+                    # ensure sorted iteration
+                    if file_path in set(zip.namelist()):
+                        f = ZipContentFetcher(zip_path, file_path)
+                        self._files[f.filename] = f
+                        self._instants[f.instant] = f
+                        return f
+        except Exception as exc:
+            print(str(exc), file=stderr)
+            if stderr.isatty():
+                traceback.print_exc(file=stderr)
+        raise KeyError(f"Can't find timepoint {str(instant)} without index.")
+
     def getinstant(self, value):
         if isinstance(value, TimestreamFile):
             value = value.instant
         assert(isinstance(value, TSInstant))
-        self.index(progress=False)
-        fetcher = self._instants[value]
+        try:
+            fetcher = self._direct_time_index(value)
+        except KeyError as exc:
+            self.index(progress=False)
+            fetcher = self._instants[value]
+        if fetcher is None:
+            raise KeyError
         return TimestreamFile(filename=fetcher.filename, fetcher=fetcher)
 
     def __getitem__(self, filename):

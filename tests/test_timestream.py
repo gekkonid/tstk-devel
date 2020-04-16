@@ -9,22 +9,9 @@ import datetime as dt
 
 
 def test_read(data):
-    timestreams = [
-        data("timestreams/flat"),
-        data("timestreams/flat.zip"),
-        data("timestreams/flat.tar"),
-        data("timestreams/nested/"),  # with trailing slash
-        data("timestreams/nested"),
-        data("timestreams/nested.zip"),
-        data("timestreams/nested.tar"),
-        data("timestreams/tarball-day"),
-        data("timestreams/zipball-day"),
-    ]
-
-    expect_insts = [TSInstant(t, index=None)
-                    for t in SMALL_TIMESTREAMS["expect_times"]]
-    for timestream in timestreams:
-        stream = TimeStream(timestream)
+    expect_insts = [TSInstant(t, index=None) for t in SMALL_TIMESTREAMS["expect_times"]]
+    for timestream in SMALL_TIMESTREAMS["timestreams"]:
+        stream = TimeStream(data(timestream))
         for i, file in enumerate(stream):
             assert stream.sorted == ('tar' not in timestream)
             assert isinstance(file.instant, TSInstant)
@@ -100,49 +87,34 @@ def test_zipout(tmpdir, data):
 
 
 def test_dict(data):
-    timestreams = [
-        data("timestreams/nested"),
-        data("timestreams/nested.zip"),
-        data("timestreams/nested.tar"),
-    ]
-    filenames = [
-        "2001_02_01_09_14_15_00.tif",
-        "2001_02_01_10_14_15_00.tif",
-        "2001_02_01_11_14_15_00.tif",
-        "2001_02_01_12_14_15_00.tif",
-        "2001_02_01_13_14_15_00.tif",
-        "2001_02_02_09_14_15_00.tif",
-        "2001_02_02_10_14_15_00.tif",
-        "2001_02_02_11_14_15_00.tif",
-        "2001_02_02_12_14_15_00.tif",
-        "2001_02_02_13_14_15_00.tif",
-    ]
-    for timestream in timestreams:
-        stream = TimeStream(timestream)
-        for fn in filenames:
+    for timestream in SMALL_TIMESTREAMS["timestreams"]:
+        if timestream.endswith(".tar"):
+            continue
+        stream = TimeStream(data(timestream), format='tif')
+        for fn in SMALL_TIMESTREAMS["filenames"]:
+            fn = f"{stream.name}_{fn}"
             gotfile = stream[fn]
             assert gotfile.filename == fn
             assert len(gotfile.content) > 0
             assert isinstance(gotfile.content, bytes)
+            instant = TSInstant.from_path(fn)
+            gotfile = stream.getinstant(instant)
+            assert gotfile.filename == fn
+            assert gotfile.instant == instant
+            assert len(gotfile.content) > 0
+            assert isinstance(gotfile.content, bytes)
+
         with pytest.raises(KeyError):
             stream["Not a file"]
 
 
 def test_read_with_filter(data):
-    timestreams = [
-        data("timestreams/nested/"),  # with trailing slash
-        data("timestreams/nested"),
-        data("timestreams/nested.zip"),
-        data("timestreams/nested.tar"),
-        data("timestreams/zipball-day"),
-    ]
-
     tfilter = TimeFilter(dt.date(2001, 2, 1), dt.date(2001, 2, 1),
                          dt.time(10, 0, 0), dt.time(12, 0, 0))
     expect_insts = [TSInstant.from_path("2001_02_01_10_14_15"),
                     TSInstant.from_path("2001_02_01_11_14_15")]
-    for timestream in timestreams:
-        stream = TimeStream(timestream, timefilter=tfilter)
+    for timestream in SMALL_TIMESTREAMS["timestreams"]:
+        stream = TimeStream(data(timestream), timefilter=tfilter)
         for i, file in enumerate(stream):
             if stream.sorted:
                 assert file.instant == expect_insts[i]
@@ -154,7 +126,6 @@ def test_read_with_filter(data):
 def test_zip_overwrite(data, tmpdir):
     in_stream = TimeStream(data("timestreams/nested"))
     out_stream = TimeStream(path=tmpdir.join("test_ts.zip"), bundle_level='root', name="output")
-
     file = next(in_stream.iter())
     assert len(file.content) > 0
     out_stream.write(file)
