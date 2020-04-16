@@ -26,7 +26,7 @@ from .imageio import (
     DecodeImageFileStep,
     EncodeImageFileStep,
 )
-from .rmscript import WriteRmScriptStep
+from .verify import VerifyImageStep
 
 __all__ = [
     "ResultRecorder",
@@ -44,5 +44,5 @@ __all__ = [
     "DecodeImageFileStep",
     "EncodeImageFileStep",
     "TruncateTimeStep",
-    "WriteRmScriptStep",
+    "VerifyImageStep",
 ]

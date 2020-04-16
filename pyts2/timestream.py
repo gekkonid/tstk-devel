@@ -370,13 +370,15 @@ class TimeStream(object):
                 traceback.print_exc(file=stderr)
         raise KeyError(f"Can't find timepoint {str(instant)} without index.")
 
-    def getinstant(self, value):
+    def getinstant(self, value, direct_only=False):
         if isinstance(value, TimestreamFile):
             value = value.instant
         assert(isinstance(value, TSInstant))
         try:
             fetcher = self._direct_time_index(value)
         except KeyError as exc:
+            if direct_only:
+                raise
             self.index(progress=False)
             fetcher = self._instants[value]
         if fetcher is None:

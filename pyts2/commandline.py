@@ -37,7 +37,7 @@ import sys
 
 
 def getncpu():
-    return int(os.environ.get("PBS_NCPUS", mp.cpu_count()))
+    return int(os.environ.get("PBS_NCPUS", 1))
 
 
 def valid_date(s):
@@ -180,9 +180,18 @@ def downsize(input, output, ncpus, informat, outformat, size, bundle, mode, flat
               help="Level at which to bundle downsized images.")
 @click.option("--audit-output", "-a", type=Path(writable=True), default=None,
               help="Audit log output TSV. If given, input images will be audited, with the log saved here.")
-def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_size, downsized_bundle, audit_output):
+@click.option("--verify", is_flag=True, default=False,
+              help="Verify INPUT has been added to OUTPUT, and delete files from INPUT if so.")
+@click.option("--verify-rm-script", "--vs", default=None, type=Path(writable=True),
+              help="Verify: write a bash script that removes files to here")
+@click.option("--verify-move-dest", "--vm", default=None, type=Path(writable=True), metavar="DEST",
+              help="Verify: Don't remove, move to DEST")
+@click.option("--verify-yes", "--vy", "verify_force_delete", default=False, is_flag=True,
+              help="Verify: Delete files without asking")
+def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_size, downsized_bundle, audit_output,
+           verify, verify_rm_script, verify_move_dest, verify_force_delete):
     ints = TimeStream(input, format=informat)
-    outts = TimeStream(output, bundle_level=bundle)
+    outts = TimeStream(output, bundle_level=bundle, format=informat)
 
     steps = [WriteFileStep(outts)]
 
@@ -206,7 +215,11 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
             EncodeImageFileStep(format="jpg"),
             WriteFileStep(downsized_ts),
         )
-        steps.append(downsize_pipeline)
+        steps.append(TeeStep(downsize_pipeline))
+
+    if verify:
+        removalist = Removalist(rm_script=verify_rm_script, mv_dest=verify_move_dest, force=verify_force_delete)
+        steps.append(VerifyImageStep(outts, removalist))
 
     pipe = TSPipeline(*steps)
 
@@ -243,56 +256,18 @@ def verify(ephemerals, resource, informat, force_delete, rm_script, move_dest, p
     Verify images from each of EPHEMERAL, ensuring images are in --resources.
     """
     resource_ts = TimeStream(resource, format=informat)
-    decoder = DecodeImageFileStep()
-    resource_ts.index()
+    removalist = Removalist(rm_script=rm_script, mv_dest=move_dest, force=force_delete)
 
-    if rm_script is not None:
-        with open(rm_script, "w") as fh:
-            print("# rmscript for", *ephemerals, file=fh)
+    pipeline = TSPipeline(
+        VerifyImageStep(resource_ts, removalist, pixel_distance, distance_file, only_check_exists),
+    )
 
-    with Removalist(rm_script=rm_script, mv_dest=move_dest, force=force_delete) as rmer:
-        if distance_file is not None:
-            distance_file = open(distance_file, "w")
-            print("ephemeral_image\tresource_image\tdistance", file=distance_file)
+    with pipeline:
         for ephemeral in ephemerals:
-            click.echo(f"Crawling ephemeral timestream: {ephemeral}")
-            ephemeral_ts = TimeStream(ephemeral, format=informat)
-            try:
-                for image in tqdm(ephemeral_ts, unit=" files"):
-                    try:
-                        res_img = resource_ts.getinstant(image.instant)
-                        if not isinstance(image.fetcher, FileContentFetcher):
-                            click.echo(f"WARNING: can't delete {image.filename} as it is bundled", err=True)
-                            continue
-                        if only_check_exists:
-                            rmer.remove(image.fetcher.pathondisk)
-                        elif pixel_distance is not None:
-                            eimg = decoder.process_file(image)
-                            rimg = decoder.process_file(res_img)
-                            if eimg.pixels.shape != rimg.pixels.shape:
-                                if distance_file is not None:
-                                    print(basename(image.filename), basename(res_img.filename), "NA", file=distance_file)
-                                continue
-                            dist = np.mean(abs(eimg.pixels - rimg.pixels))
-                            if distance_file is not None:
-                                print(basename(image.filename), basename(res_img.filename), dist, file=distance_file)
-                            if dist < pixel_distance:
-                                rmer.remove(realpath(image.fetcher.pathondisk))
-                        elif image.md5sum == res_img.md5sum:
-                            rmer.remove(realpath(image.fetcher.pathondisk))
-                    except KeyError:
-                        tqdm.write(f"{image.instant} not in {resource}")
-                        if distance_file is not None:
-                            print(basename(image.filename), "", "", file=distance_file)
-                    except Exception as exc:
-                        click.echo(f"WARNING: error in resources lookup of {image.filename}: {str(exc)}", err=True)
-                        if stderr.isatty():
-                            traceback.print_exc(file=stderr)
-            except KeyboardInterrupt:
-                print("\n\nExiting cleanly", file=stderr)
-                break
-    if distance_file is not None:
-        distance_file.close()
+            ephemeral_ts  = TimeStream(ephemeral, format=informat)
+            for image in pipe.process(ints, ncpus=ncpus):
+                pass
+        click.echo(f"Processed {', '.join(ephemerals)}, verified {pipe.n} files")
 
 
 @tstk_main.command()
