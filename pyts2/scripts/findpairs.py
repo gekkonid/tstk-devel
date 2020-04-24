@@ -12,6 +12,8 @@ import piexif
 from PIL import Image
 from sys import stderr
 from tqdm import tqdm
+import traceback
+
 from pyts2.removalist import Removalist
 
 EXIF_BLACKLIST = [
@@ -36,23 +38,28 @@ def find_all(basedir):
 
 
 def exif_matches(file1, file2):
-    ex1 = piexif.load(file1)
-    ex2 = piexif.load(file2)
-    for group in ['Exif', ]:
-        allkeys = set(list(ex1[group].keys()) + list(ex2[group].keys()))
-        for key in allkeys:
-            if (group, key) in EXIF_BLACKLIST:
-                continue
-            try:
-                f1 = ex1[group][key]
-                f2 = ex2[group][key]
-            except KeyError:
-                return False
+    try:
+        ex1 = piexif.load(file1)
+        ex2 = piexif.load(file2)
+        for group in ['Exif', ]:
+            allkeys = set(list(ex1[group].keys()) + list(ex2[group].keys()))
+            for key in allkeys:
+                if (group, key) in EXIF_BLACKLIST:
+                    continue
+                try:
+                    f1 = ex1[group][key]
+                    f2 = ex2[group][key]
+                except KeyError:
+                    return False
 
-            if f1 != f2:
-                return False
-    return True
-
+                if f1 != f2:
+                    return False
+        return True
+    except Exception as exc:
+        if stderr.isatty():
+            traceback.print_exc(file=stderr)
+        return False
+        
 
 def findpairs_main(base, rm_script, move_dest, force_delete, jpeg=True):
     with Removalist(rm_script=rm_script, mv_dest=move_dest, force=force_delete) as rmer:
