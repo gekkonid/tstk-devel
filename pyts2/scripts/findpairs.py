@@ -14,6 +14,7 @@ from sys import stderr
 from tqdm import tqdm
 import traceback
 
+
 from pyts2.removalist import Removalist
 
 EXIF_BLACKLIST = [
@@ -21,15 +22,18 @@ EXIF_BLACKLIST = [
     ('Exif', piexif.ExifIFD.InteroperabilityTag),
 ]
 
-
-def find_all(basedir):
+def find_all(basedirs):
+    """
+    basedirs: list of one or more source directories
+    """
     pairs = defaultdict(list)
-    for root, dirs, files in os.walk(basedir):
-        for file in files:
-            bn, ext = op.splitext(op.basename(file))
-            if ext.lower() not in [".cr2", ".dng", ".raw", ".rw2", ".orf", ".jpg", ".jpeg"]:
-                continue
-            pairs[bn.lower()].append(op.join(root, file))
+    for basedir in basedirs:
+        for root, dirs, files in os.walk(basedir):
+            for file in files:
+                bn, ext = op.splitext(op.basename(file))
+                if ext.lower() not in [".cr2", ".dng", ".raw", ".rw2", ".orf", ".jpg", ".jpeg"]:
+                    continue
+                pairs[bn.lower()].append(op.join(root, file))
 
     for base, files in pairs.items():
         files = list(sorted(files))
@@ -38,6 +42,10 @@ def find_all(basedir):
 
 
 def exif_matches(file1, file2):
+    """
+    Determine whether the exif data matches between file1 and file2
+    Omits checks for exif data listed in EXIF_BLACKLIST
+    """
     try:
         ex1 = piexif.load(file1)
         ex2 = piexif.load(file2)
@@ -59,11 +67,18 @@ def exif_matches(file1, file2):
         if stderr.isatty():
             traceback.print_exc(file=stderr)
         return False
-        
 
-def findpairs_main(base, rm_script, move_dest, force_delete, jpeg=True):
+
+def findpairs_main(input, rm_script, move_dest, force_delete, jpeg=True):
+    """
+    input: List of one or more source directories
+    rm_script: A path. Calls Removalist to write a bash script that removes files to here
+    move_dest: Don't remove, move to here
+    force_delete: Delete files without asking
+    jpeg: if True, rename '*.jpeg' with '*.jpg'
+    """
     with Removalist(rm_script=rm_script, mv_dest=move_dest, force=force_delete) as rmer:
-        for (f1, f2) in tqdm(find_all(base)):
+        for (f1, f2) in tqdm(find_all(input)):
             if exif_matches(f1, f2):
                 if jpeg:
                     exts = {op.splitext(f)[1].lower().replace("jpeg", "jpg"): f
