@@ -471,7 +471,7 @@ def imgscan(input, timestreamify_script, timestreamify_destination, output, ncpu
               help="Don't remove, move to DEST")
 @click.option("--yes", "-y", "force_delete", default=False, is_flag=True,
               help="Delete files without asking")
-@click.argument("input")
+@click.argument("input", nargs=-1)
 def findpairs(input, rm_script, move_dest, force_delete):
     """Finds pairs of XXXXXX.{jpg,cr2} or similar with identical metadata & filename."""
     from pyts2.scripts.findpairs import findpairs_main
