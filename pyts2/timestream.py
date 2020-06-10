@@ -150,6 +150,8 @@ class TimestreamFile(object):
         self.instant = instant
         self.filename = filename
         self.fetcher = fetcher
+        if filename is None and fetcher is not None:
+            self.filename = fetcher.filename
         self._content = content
         # a report from various pipeline components on this file
         if report is None:
@@ -255,13 +257,13 @@ class TimeStream(object):
             self.onerror = onerror
         else:
             raise ValueError("onerror should be one of raise, skip, or warn")
+        self._index_file = None
         if path is not None:
             self.open(path, format=format)
-
-        if bundle_level == "root" or op.isfile(self.path):
-            self._index_file = self.path + ".index.json"
-        else:
-            self._index_file = op.join(self.path, "index.json")
+            if bundle_level == "root" or op.isfile(self.path):
+                self._index_file = self.path + ".index.json"
+            else:
+                self._index_file = op.join(self.path, "index.json")
 
     def open(self, path, format=None):
         if self.name is None:
@@ -334,6 +336,19 @@ class TimeStream(object):
     def __getitem__(self, filename):
         self.index(progress=False)
         return TimestreamFile(filename=filename, fetcher=self._files[filename])
+
+
+    def from_fofn(self, pathorfile):
+        fp = pathorfile
+        if not isinstance(pathorfile, io.IOBase):
+            fp = open(pathorfile)
+        for path in fp:
+            path = path.strip()
+            if not path_is_timestream_file(path, extensions=self.format):
+                continue
+            fetcher = FileContentFetcher(path)
+            self._files[fetcher.filename] = fetcher
+            yield TimestreamFile(fetcher=fetcher)
 
     def iter(self, tar_contents=True):
         def walk_archive(path):

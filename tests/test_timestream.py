@@ -5,6 +5,7 @@ from pyts2.utils import find_files
 from .utils import *
 from .data import *
 
+import io
 import datetime as dt
 
 
@@ -32,6 +33,16 @@ def test_read(data):
                 assert file.instant == expect_insts[i]
 
         assert list(sorted(stream.instants)) == expect_insts
+
+def test_read_fofn(data):
+    files = list(find_files(data("timestreams/flat")))
+    buf = io.StringIO("\n".join(files))
+
+    stream = TimeStream().from_fofn(buf)
+    expect_insts = [TSInstant.from_path(f) for f in files]
+    for i, file in enumerate(stream):
+        assert file.instant == expect_insts[i]
+        assert len(file.content) > 0
 
 
 def test_gvlike(data):
