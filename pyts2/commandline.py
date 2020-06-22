@@ -478,5 +478,40 @@ def findpairs(input, rm_script, move_dest, force_delete):
     findpairs_main(input, rm_script, move_dest, force_delete)
 
 
+@tstk_main.command()
+@click.option("--output", "-o", type=Path(writable=True),
+              help="Output video file name")
+@click.option("--ffmpeg-path", "-b", default="ffmpeg",
+              help="ffmpeg command/path")
+@click.option("--ffmpeg-args", default=None,
+              help="ffmpeg custom commandline")
+@click.option("--framerate", "-r", default=10,
+              help="Video frame rate")
+# FIXME: make this take the typical tstk 720x-style arg, and convert to ffmpeg -f:v scale.... arg
+@click.option("--scaling", "-s", default=None,
+              help="FFMpeg args for scaling")
+@click.option("--ncpus", "-j", default=getncpu(),
+              help="Number of threads for ffmpeg to use")
+@click.option("--informat", "-F", default=None,
+              help="Input image format (use extension as lower case for raw formats)")
+@click.argument("input")
+def video(input, output, ffmpeg_path, ffmpeg_args, framerate, scaling, ncpus, informat):
+    """Creates a standard timelapse video from timestream"""
+
+    from pyts2.pipeline.video import VideoEncoder
+
+    # ffmpeg_command = ffmpeg_path+' '+ffmpeg_arg
+    ints = TimeStream(input, format=informat)
+    pipe = TSPipeline(
+        VideoEncoder(output, ffmpeg_args=ffmpeg_args, ffmpeg_path=ffmpeg_path,
+            rate=framerate, threads=ncpus, scaling=scaling)
+    )
+    try:
+        for image in pipe.process(ints, ncpus=1):
+            pass
+    finally:
+        pipe.finish()
+
+
 if __name__ == "__main__":
     tstk_main()
