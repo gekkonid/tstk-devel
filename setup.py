@@ -26,6 +26,7 @@ setup(
     cmdclass=versioneer.get_cmdclass(),
     install_requires=install_requires,
     tests_require=test_requires,
+    include_package_data=True,
     description=desc,
     entry_points='''
         [console_scripts]

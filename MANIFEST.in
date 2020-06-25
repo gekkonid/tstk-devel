@@ -1,2 +1,3 @@
 include versioneer.py
 include pyts2/_version.py
+include pyts2/data/*

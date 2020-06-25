@@ -16,7 +16,7 @@ import numpy as np
 import pyts2
 from pyts2 import TimeStream
 from pyts2.timestream import FileContentFetcher
-from pyts2.time import TimeFilter
+from pyts2.time import TimeFilter, parse_date
 from pyts2.pipeline import *
 from pyts2.utils import CatchSignalThenExit
 from pyts2.removalist import Removalist
@@ -42,22 +42,16 @@ def getncpu():
 
 def valid_date(s):
     try:
-        if isinstance(s, datetime.datetime) or isinstance(s, datetime.date):
-            return s
-        return datetime.datetime.strptime(s, "%Y-%m-%d")
+        return parse_date(s)
     except ValueError:
-        msg = "Not a valid date in Y-m-d form: '{0}'.".format(s)
-        raise argparse.ArgumentTypeError(msg)
+        raise argparse.ArgumentTypeError(f"Not a valid date in Y-m-d form: '{s}'.")
 
 
 def valid_time(s):
     try:
-        if isinstance(s, datetime.datetime) or isinstance(s, datetime.time):
-            return s
-        return datetime.time.strptime(s, "%H:%M:%S")
+        return parse_date(s)
     except ValueError:
-        msg = "Not a valid date in Y-m-d form: '{0}'.".format(s)
-        raise argparse.ArgumentTypeError(msg)
+        raise argparse.ArgumentTypeError(f"Not a valid time in H-M-S form: '{s}'.")
 
 
 @click.group()
@@ -218,6 +212,7 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
         if audit_output is not None:
             pipe.report.save(audit_output)
         click.echo(f"Ingested {input}:{informat} to {output}, found {pipe.n} files")
+        sys.exit(pipe.retcode)
 
 
 @tstk_main.command()
@@ -398,6 +393,7 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
         pipe.finish()
         if audit_output is not None:
             pipe.report.save(audit_output)
+        sys.exit(pipe.retcode)
 
 
 @tstk_main.command()
@@ -405,15 +401,15 @@ def gvmosaic(input, informat, dims, order, audit_output, composite_bundling,
               help="Input image format (use extension as lower case for raw formats)")
 @click.option("--bundle", "-b", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle files")
-@click.option("--start-time", "-S", type=valid_time,
+@click.option("--start-time", "-S",
               help="Start time of day (inclusive)")
-@click.option("--end-time", "-E", type=valid_time,
+@click.option("--end-time", "-E",
               help="End time of day (inclusive)")
 @click.option("--interval", "-i", type=int,
               help="Interval in minutes")
-@click.option("--start-date", "-s", type=valid_date,
+@click.option("--start-date", "-s",
               help="Start time of day (inclusive)")
-@click.option("--end-date", "-e", type=valid_date,
+@click.option("--end-date", "-e",
               help="End time of day (inclusive)")
 @click.argument("input")
 @click.argument("output")
@@ -425,6 +421,27 @@ def cp(informat, bundle, input, output, start_time, start_date, end_time, end_da
     for image in tqdm(TimeStream(input, format=informat, timefilter=tfilter)):
         with CatchSignalThenExit():
             output.write(image)
+
+@tstk_main.command()
+@click.option("--informat", "-F", default=None,
+              help="Input image format (use extension as lower case for raw formats)")
+@click.option("--start-time", "-S",
+              help="Start time of day (inclusive)")
+@click.option("--end-time", "-E",
+              help="End time of day (inclusive)")
+@click.option("--interval", "-i", type=int,
+              help="Interval in minutes")
+@click.option("--start-date", "-s",
+              help="Start time of day (inclusive)")
+@click.option("--end-date", "-e",
+              help="End time of day (inclusive)")
+@click.argument("input")
+def ls(informat, input, start_time, start_date, end_time, end_date, interval):
+    tfilter = TimeFilter(start_date, end_date, start_time, end_time)
+    if interval is not None:
+        raise NotImplementedError("haven't done interval restriction yet")
+    for image in TimeStream(input, format=informat, timefilter=tfilter):
+        print(image.instant)
 
 
 @tstk_main.command()
@@ -489,7 +506,7 @@ def findpairs(input, rm_script, move_dest, force_delete):
               help="Video frame rate")
 # FIXME: make this take the typical tstk 720x-style arg, and convert to ffmpeg -f:v scale.... arg
 @click.option("--scaling", "-s", default=None,
-              help="FFMpeg args for scaling")
+              help="FFMpeg args for scaling, default scales up so sides are even length")
 @click.option("--ncpus", "-j", default=getncpu(),
               help="Number of threads for ffmpeg to use")
 @click.option("--informat", "-F", default=None,
@@ -498,20 +515,23 @@ def findpairs(input, rm_script, move_dest, force_delete):
 def video(input, output, ffmpeg_path, ffmpeg_args, framerate, scaling, ncpus, informat):
     """Creates a standard timelapse video from timestream"""
 
-    from pyts2.pipeline.video import VideoEncoder
+    from pyts2.pipeline.video import VideoEncoder, ImageWatermarker
 
     # ffmpeg_command = ffmpeg_path+' '+ffmpeg_arg
     ints = TimeStream(input, format=informat)
     pipe = TSPipeline(
+        DecodeImageFileStep(),
+        ImageWatermarker(),
+        EncodeImageFileStep(format="jpg"),
         VideoEncoder(output, ffmpeg_args=ffmpeg_args, ffmpeg_path=ffmpeg_path,
-            rate=framerate, threads=ncpus, scaling=scaling)
+            rate=framerate, threads=ncpus, scaling=scaling),
     )
     try:
         for image in pipe.process(ints, ncpus=1):
             pass
     finally:
         pipe.finish()
-
+        sys.exit(pipe.retcode)
 
 if __name__ == "__main__":
     tstk_main()
