@@ -24,8 +24,12 @@ csv.register_dialect('tsv',
                      quoting=csv.QUOTE_NONNUMERIC)
 
 
+class FatalPipelineError(Exception):
+    pass
+
 class TSPipeline(object):
     def __init__(self, *args, reporter=None):
+        self.retcode = 0 
         self.n = 0
         self.steps = []
         for step in args:
@@ -47,6 +51,17 @@ class TSPipeline(object):
             file.report["Errors"] = None
             try:
                 file = step.process_file(file)
+            except FatalPipelineError as exc:
+                if file is not None:
+                    path = file.filename
+                    if hasattr(file.fetcher, "pathondisk"):
+                        path = file.fetcher.pathondisk
+                    print(f"\n{exc.__class__.__name__}: {str(exc)} while processing '{path}'\n", file=stderr)
+                    if stderr.isatty():
+                        traceback.print_exc(file=stderr)
+                    file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
+                    self.report.record(file.instant, **file.report)
+                raise
             except Exception as exc:
                 if file is not None:
                     path = file.filename
@@ -62,23 +77,27 @@ class TSPipeline(object):
         return file
 
     def process(self, input_stream, ncpus=1, progress=True):
-        from concurrent.futures import as_completed, ThreadPoolExecutor, ProcessPoolExecutor
-        if ncpus > 1:
-            with ProcessPoolExecutor(max_workers=ncpus) as executor:
-                for file in tqdm(executor.map(self.process_file, input_stream), unit=" files"):
+        try:
+            from concurrent.futures import as_completed, ThreadPoolExecutor, ProcessPoolExecutor
+            if ncpus > 1:
+                with ProcessPoolExecutor(max_workers=ncpus) as executor:
+                        for file in tqdm(executor.map(self.process_file, input_stream), unit=" files"):
+                            if file is None:
+                                continue
+                            self.report.record(file.instant, **file.report)
+                            self.n += 1
+                            yield file
+            else:
+                for file in tqdm(input_stream, unit=" files"):
+                    file = self.process_file(file)
                     if file is None:
                         continue
                     self.report.record(file.instant, **file.report)
                     self.n += 1
                     yield file
-        else:
-            for file in tqdm(input_stream, unit=" files"):
-                file = self.process_file(file)
-                if file is None:
-                    continue
-                self.report.record(file.instant, **file.report)
-                self.n += 1
-                yield file
+        except FatalPipelineError as exc:
+            print(f"Apologies, we encountered a fatal pipeline error, and are stopping processing. The error is:\n{str(exc)}", file=stderr)
+            self.retcode=1
 
     def __call__(self, *args, **kwargs):
         yield from self.process(*args, **kwargs)

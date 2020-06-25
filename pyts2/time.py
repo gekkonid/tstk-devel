@@ -39,10 +39,29 @@ def parse_date(datestr):
     except:
         pass
     # Then the usual
-    try:
-        return datetime.datetime.strptime(datestr, TS_DATEFMT)
-    except:
-        pass
+    valid_formats = [
+        "%Y_%m_%d_%H_%M_%S",
+        "%Y_%m_%d_%H%M%S",
+        "%Y%m%d_%H%M%S",
+        "%Y%m%d%H%M%S",
+        "%Y-%m-%d_%H:%M:%S",
+        "%Y_%m_%d_%H_%M",
+        "%Y_%m_%d_%H%M",
+        "%Y%m%d_%H%M",
+        "%Y%m%d%H%M",
+        "%Y-%m-%d_%H:%M",
+        "%Y_%m_%d_%H",
+        "%Y_%m_%d",
+        "%Y-%m-%d",
+        "%H_%M_%S",
+        "%H:%M:%S",
+        "%H:%M",
+    ]
+    for fmt in valid_formats:
+        try:
+            return datetime.datetime.strptime(datestr, fmt)
+        except:
+            pass
 
     # Add more things here in try-excepts if we want to accept other date
     # formats

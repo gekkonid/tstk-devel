@@ -23,6 +23,9 @@ def geom2rowcol(geom):
         raise ValueError(f"Invalid image geometry: {geom}")
     return rows, cols
 
+def ceil2(x):
+    """Round up to next even number"""
+    return int(np.ceil(x/2)*2)
 
 class GenericDownsizerStep(PipelineStep):
     """Handles boilerplate of chosing sizes etc. for ResizeImageStep/CropCentreStep"""
@@ -54,7 +57,10 @@ class GenericDownsizerStep(PipelineStep):
                 rows = orows * (cols / ocols)
             elif cols is None:
                 cols = ocols * (rows / orows)
-        rows, cols = np.round((rows, cols)).astype(int)
+        rows = ceil2(rows)
+        assert rows % 2 == 0
+        cols = ceil2(cols)
+        assert cols % 2 == 0
         if rows > orows:
             rows = orows
         if cols > ocols:
