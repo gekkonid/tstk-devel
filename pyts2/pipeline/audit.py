@@ -13,7 +13,6 @@ import numpy as np
 import zbarlight
 import skimage as ski
 from skimage.color import rgb2lab
-from pyexiv2 import ImageMetadata
 import piexif
 from math import log2
 
