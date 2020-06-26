@@ -13,6 +13,8 @@ import numpy as np
 import zbarlight
 import skimage as ski
 from skimage.color import rgb2lab
+from pyexiv2 import ImageMetadata
+from math import log2
 
 
 class ImageMeanColourException(Exception):
@@ -55,3 +57,19 @@ class ScanQRCodesStep(PipelineStep):
             codes = ';'.join(sorted(x.decode('utf8') for x in codes))
         file.report.update({"QRCodes": codes})
         return file
+
+class CalculateEVStep(PipelineStep):
+
+    def process_file(self, file):
+        md = ImageMetadata.from_buffer(file.content)
+        try:
+            md.read()
+            ss = float(md['Exif.Photo.ExposureTime'].value)
+            fs = float(md['Exif.Photo.FNumber'].value)
+            iso = float(md['Exif.Photo.ISOSpeedRatings'].value)
+            ev = log2((fs ** 2)/ss) - log2(iso/100)
+            file.report.update({"ExposureValue": ev})
+        except KeyError:
+            pass
+        return file
+

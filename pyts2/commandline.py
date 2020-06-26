@@ -98,6 +98,7 @@ def bundle(force, informat, bundle, input, output):
 def audit(output, input, ncpus=1, informat=None):
     pipe = TSPipeline(
         FileStatsStep(),
+        CalculateEVStep(),
         DecodeImageFileStep(),
         ImageMeanColourStep(),
         ScanQRCodesStep(),
@@ -186,6 +187,7 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
     if audit_output is not None:
         audit_pipe = TSPipeline(
             FileStatsStep(),
+            CalculateEVStep(),
             DecodeImageFileStep(),
             ImageMeanColourStep(),
             ScanQRCodesStep(),

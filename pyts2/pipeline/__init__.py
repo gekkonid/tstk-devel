@@ -15,6 +15,7 @@ from .base import (
 from .audit import (
     ImageMeanColourStep,
     ScanQRCodesStep,
+    CalculateEVStep,
 )
 from .resize import (
     ResizeImageStep,
@@ -38,6 +39,7 @@ __all__ = [
     "TeeStep",
     "ImageMeanColourStep",
     "ScanQRCodesStep",
+    "CalculateEVStep",
     "ResizeImageStep",
     "CropCentreStep",
     "TimestreamImage",
