@@ -6,11 +6,7 @@
 
 import click
 from click import Choice, Path, DateTime
-from PIL import Image
-import zbarlight
 from tqdm import tqdm
-import piexif
-import rawpy
 import numpy as np
 
 import pyts2
@@ -111,8 +107,8 @@ def audit(output, input, ncpus=1, informat=None):
                 pipe.report.save(output)
     finally:
         pipe.report.save(output)
-        click.echo(f"Audited {input}:{informat}, found {pipe.n} files")
-
+        fmt = "" if informat is None else f":{informat}"
+        click.echo(f"Audited {input}{fmt}, found {pipe.n} files")
 
 ####################################################################################################
 #                                              RESIZE                                              #

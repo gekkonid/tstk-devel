@@ -4,6 +4,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import numpy as np
+import os
+os.environ["OMP_NUM_THREADS"] = "1"  # force single-threaded demosaicing in rawpy
 import rawpy
 import cv2
 import imageio
@@ -48,7 +50,8 @@ class DecodeImageFileStep(PipelineStep):
         },
     }
 
-    def __init__(self, decode_options=None, process_raws=True):
+    def __init__(self, decode_options=None, process_raws=True, raw_use_embedded_jpeg=False):
+        self.raw_use_embedded_jpeg = raw_use_embedded_jpeg
         self.decode_options = self.default_options
         if decode_options:
             self.decode_options.update(self.decode_options)
@@ -61,6 +64,13 @@ class DecodeImageFileStep(PipelineStep):
             with rawpy.imread(io.BytesIO(file.content)) as img:
                 if self.process_raws:
                     pixels = img.postprocess(**self.decode_options[format].copy())
+                elif self.raw_use_embedded_jpeg:
+                    try:
+                        thumb = raw.extract_thumb()
+                    except (rawpy.LibRawNoThumbnailError, rawpy.LibRawUnsupportedThumbnailError) as exc:
+                        pixels = img.postprocess(**self.decode_options[format].copy())
+                    else:
+                        pixels = imageio.imread(thumb.data)
                 else:
                     pixels = img.raw_image.copy()
         else:

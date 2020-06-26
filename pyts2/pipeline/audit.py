@@ -14,6 +14,7 @@ import zbarlight
 import skimage as ski
 from skimage.color import rgb2lab
 from pyexiv2 import ImageMetadata
+import piexif
 from math import log2
 
 
@@ -58,16 +59,20 @@ class ScanQRCodesStep(PipelineStep):
         file.report.update({"QRCodes": codes})
         return file
 
+def rat2float(x):
+    n, d = x
+    return float(n)/float(d)
+
 class CalculateEVStep(PipelineStep):
 
     def process_file(self, file):
-        md = ImageMetadata.from_buffer(file.content)
+        md = piexif.load(file.content)
         try:
-            md.read()
-            ss = float(md['Exif.Photo.ExposureTime'].value)
-            fs = float(md['Exif.Photo.FNumber'].value)
-            iso = float(md['Exif.Photo.ISOSpeedRatings'].value)
-            ev = log2((fs ** 2)/ss) - log2(iso/100)
+            ss = md['Exif'][piexif.ExifIFD.ExposureTime]
+            fs = md['Exif'][piexif.ExifIFD.FNumber]
+            iso = md['Exif'][piexif.ExifIFD.ISOSpeedRatings]
+            #print(ss, rat2float(ss), fs, rat2float(fs), iso)
+            ev = log2((rat2float(fs) ** 2)/rat2float(ss)) - log2(float(iso)/100)
             file.report.update({"ExposureValue": ev})
         except KeyError:
             pass
