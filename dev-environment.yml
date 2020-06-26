@@ -12,6 +12,7 @@ dependencies:
   - numpy
   - opencv
   - piexif
+  - py3exiv2
   - pytest
   - pytest-cov
   - pytest-remotedata
