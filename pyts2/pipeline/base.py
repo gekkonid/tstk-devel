@@ -5,6 +5,7 @@
 
 
 from tqdm import tqdm
+import msgpack
 
 import copy
 from collections import defaultdict
@@ -116,9 +117,11 @@ class TSPipeline(object):
 
     def finish(self):
         for step in self.steps:
+            step.finish()
             if hasattr(step, "report") and isinstance(step.report, ResultRecorder):
                 self.report.merge(step.report)
-            step.finish()
+                step.report.close()
+        self.report.close()
 
 
 class ResultRecorder(object):
@@ -157,6 +160,32 @@ class ResultRecorder(object):
                         val = re.sub(r"\s+", " ", val, re.IGNORECASE | re.MULTILINE)
                     line.append(val)
                 tsvw.writerow(line)
+
+    def close(self):
+        pass
+
+class LiveResultRecorder(ResultRecorder):
+
+    def __init__(self, fileorpath):
+        if hasattr(fileorpath, "write"):
+            self.file = fileorpath
+        else:
+            self.file = open(fileorpath)
+
+    def record(self, instant, **kwargs):
+        dat = {"instant": repr(instant)}
+        dat.update(kwargs)
+        self.file.write(msgpack.packb(dat))
+
+    def merge(self, reporter):
+        for inst, data in reporter.data.items():
+            self.record(inst, **data)
+
+    def close(self):
+        self.file.close()
+
+    def save(self):
+        pass
 
 
 ##########################################################################################

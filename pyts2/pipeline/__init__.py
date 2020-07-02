@@ -28,6 +28,8 @@ from .imageio import (
     EncodeImageFileStep,
 )
 from .rmscript import WriteRmScriptStep
+from .telegraf import TelegrafRecordStep
+from .verify import UnsafeNuker
 
 __all__ = [
     "ResultRecorder",
@@ -47,4 +49,6 @@ __all__ = [
     "EncodeImageFileStep",
     "TruncateTimeStep",
     "WriteRmScriptStep",
+    "TelegrafRecordStep",
+    "UnsafeNuker",
 ]

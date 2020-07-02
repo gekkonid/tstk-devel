@@ -1,0 +1,19 @@
+#!/bin/bash
+if [ -n "${INFORMAT:-}" ]
+then
+    fmt="--informat $INFORMAT"
+fi
+set -xe
+
+tstk liveingest  \
+    --telegraf-host $TELEGRAF_HOST \
+    --telegraf-port $TELEGRAF_PORT \
+    --telegraf-metric $TELEGRAF_METRIC \
+    $fmt \
+    --output $RESOURCES_OUTPUT \
+    --bundle $RESOURCES_BUNDLE \
+    --downsized-output $DOWNSIZED_OUTPUT \
+    --downsized-bundle $DOWNSIZED_BUNDLE \
+    --downsized-size $DOWNSIZED_SIZE \
+    --NUKE \
+    --inotify-watch $EPHEMERAL

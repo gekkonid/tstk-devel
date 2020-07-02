@@ -14,6 +14,7 @@ from pyts2 import TimeStream
 from pyts2.timestream import FileContentFetcher
 from pyts2.time import TimeFilter, parse_date
 from pyts2.pipeline import *
+from pyts2.pipeline.base import LiveResultRecorder
 from pyts2.utils import CatchSignalThenExit
 from pyts2.removalist import Removalist
 
@@ -68,9 +69,7 @@ def version():
 @click.option("--bundle", "-b", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle files")
 @click.argument("input")
-# help="Input files in timestream format of any form but msgpack")
 @click.argument("output")
-# help="Output file or directory")
 def bundle(force, informat, bundle, input, output):
     input = TimeStream(input, format=informat)
     if os.path.exists(output) and not force:
@@ -84,14 +83,24 @@ def bundle(force, informat, bundle, input, output):
 
 
 @tstk_main.command()
-@click.option("--output", "-o", required=True,
+@click.option("--output", "-o", default=None,
               help="Output TSV file name")
 @click.option("--ncpus", "-j", default=getncpu(),
               help="Number of parallel workers")
 @click.option("--informat", "-F", default=None,
               help="Input image format (use extension as lower case for raw formats)")
+@click.option("--telegraf-host", default=None,
+              help="Telegraf reporting host")
+@click.option("--telegraf-port", default=8092,
+              help="Telegraf reporting port")
+@click.option("--telegraf-metric", default='tstk_audit',
+              help="Telegraf reporting metric name")
 @click.argument("input")
-def audit(output, input, ncpus=1, informat=None):
+def audit(input, output, telegraf_host, telegraf_port, telegraf_metric, ncpus=1, informat=None):
+    if output is None and telegraf_host is None:
+        print("ERROR: must give one of --output or --telegraf-host")
+        sys.exit(1)
+
     pipe = TSPipeline(
         FileStatsStep(),
         CalculateEVStep(),
@@ -100,13 +109,22 @@ def audit(output, input, ncpus=1, informat=None):
         ScanQRCodesStep(),
     )
 
+    if telegraf_host is not None:
+        pipe.add_step(TelegrafRecordStep(
+            metric_name=telegraf_metric,
+            telegraf_host=telegraf_host,
+            telegraf_port=telegraf_port,
+        ))
+
     ints = TimeStream(input, format=informat)
     try:
         for image in pipe.process(ints, ncpus=ncpus):
-            if pipe.n % 1000 == 0:
-                pipe.report.save(output)
+            if output is not None:
+                if pipe.n % 1000 == 0:
+                    pipe.report.save(output)
     finally:
-        pipe.report.save(output)
+        if output is not None:
+            pipe.report.save(output)
         fmt = "" if informat is None else f":{informat}"
         click.echo(f"Audited {input}{fmt}, found {pipe.n} files")
 
@@ -209,8 +227,82 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
         pipe.finish()
         if audit_output is not None:
             pipe.report.save(audit_output)
-        click.echo(f"Ingested {input}:{informat} to {output}, found {pipe.n} files")
+        ifmt = f":{informat}" if informat is not None else ""
+        click.echo(f"Ingested {input}{ifmt} to {output}, found {pipe.n} files")
         sys.exit(pipe.retcode)
+
+@tstk_main.command()
+@click.option("--input", "-i", default=stdin, type=click.File("r"),
+              help="file of file names to input (default stdin).")
+@click.option("--inotify-watch", "-I", default=None, type=click.Path(writable=True, file_okay=False, dir_okay=True),
+              help="watch DIR for changes, ingest the new files.")
+@click.option("--informat", "-F", default=None,
+              help="Input image format (use extension as lower case for raw formats)")
+@click.option("--output", "-o", required=True, type=Path(writable=True),
+              help="Archival bundled TimeStream")
+@click.option("--bundle", "-b", type=Choice(TimeStream.bundle_levels), default="none",
+              help="Level at which to bundle files.")
+@click.option("--downsized-output", "-s", default=None,
+              help="Output a downsized copy of the images here")
+@click.option("--downsized-size", "-S", default='720x',
+              help="Downsized output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
+@click.option("--downsized-bundle", "-B", type=Choice(TimeStream.bundle_levels), default="root",
+              help="Level at which to bundle downsized images.")
+@click.option("--telegraf-host", default="localhost",
+              help="Telegraf reporting host")
+@click.option("--telegraf-port", default=8092,
+              help="Telegraf reporting port")
+@click.option("--telegraf-metric", default='tstk_live_ingest',
+              help="Telegraf reporting metric name")
+@click.option("--NUKE", is_flag=True, default=False,
+              help="DELETE file UNSAFELY as it finishes processsing")
+def liveingest(input, informat, output, bundle, downsized_output, downsized_size, downsized_bundle, telegraf_host, telegraf_port, telegraf_metric, inotify_watch, nuke):
+
+    ints = TimeStream(format=informat)
+    outts = TimeStream(output, bundle_level=bundle)
+
+    pipe = TSPipeline()
+    pipe.add_step(WriteFileStep(outts))
+
+    audit_pipe = TSPipeline(
+        FileStatsStep(),
+        DecodeImageFileStep(),
+        ImageMeanColourStep(),
+        ScanQRCodesStep(),
+        TelegrafRecordStep(
+            metric_name=telegraf_metric,
+            telegraf_host=telegraf_host,
+            telegraf_port=telegraf_port,
+        ),
+    )
+    pipe.add_step(audit_pipe)
+
+    if downsized_output is not None:
+        downsized_ts = TimeStream(downsized_output, bundle_level=downsized_bundle, add_subsecond_field=True)
+        downsize_pipeline = TSPipeline(
+            DecodeImageFileStep(),
+            ResizeImageStep(geom=downsized_size),
+            EncodeImageFileStep(format="jpg"),
+            WriteFileStep(downsized_ts),
+        )
+        pipe.add_step(TeeStep(downsize_pipeline))
+
+    if nuke:
+        pipe.add_step(UnsafeNuker())
+
+    try:
+        if inotify_watch is not None:
+            instream = ints.from_inotify(inotify_watch)
+        else:
+            instream = ints.from_fofn(input)
+        for image in instream:
+            image = pipe.process_file(image)
+            click.echo(f"{image.instant} Done")
+            pipe.n += 1
+    finally:
+        pipe.finish()
+        ifmt = f":{informat}" if informat is not None else ""
+        click.echo(f"Ingested {input.name}{ifmt} to {output}, found {pipe.n} files")
 
 
 @tstk_main.command()

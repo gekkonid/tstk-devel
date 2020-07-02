@@ -23,4 +23,5 @@ dependencies:
   - pip:
     - rawpy>=0.14
     - datetime_truncate
-    - influxdb
+    - pytelegraf
+    - inotify
