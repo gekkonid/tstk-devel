@@ -338,6 +338,48 @@ class TimeStream(object):
         return TimestreamFile(filename=filename, fetcher=self._files[filename])
 
 
+
+    def _scan_dir(self, basedir):
+        for root, dirs, files in os.walk(basedir):
+            # ensure sorted iteration
+            dirs.sort()
+            files.sort(key=lambda f: extract_datetime(f))
+            for file in files:
+                path = op.join(root, file)
+                if not op.exists(path):
+                    continue
+                if not path_is_timestream_file(path, extensions=self.format):
+                    continue
+                fetcher = FileContentFetcher(path)
+                self._files[fetcher.filename] = fetcher
+                yield TimestreamFile(fetcher=fetcher)
+
+    def from_inotify(self, basedir):
+        import inotify.adapters
+
+        while True:
+            # this dual loop means we should time out and re-scan the complete dir every hour or so
+            yield from self._scan_dir(basedir)
+
+            inot = inotify.adapters.InotifyTree(basedir)
+            for _ in range(600): # rescan every 10m
+                for ev in inot.event_gen(timeout_s=1, yield_nones=False):
+                    (_, type_names, path, filename) = ev
+                    if 'IN_ISDIR' in type_names or  not 'IN_CLOSE_WRITE' in type_names and not 'IN_MOVED_TO' in type_names:
+                        continue
+                    path = op.join(path, filename)
+                    if not op.exists(path):
+                        continue
+                    if not path_is_timestream_file(path, extensions=self.format):
+                        continue
+                    fetcher = FileContentFetcher(path)
+                    self._files[fetcher.filename] = fetcher
+                    yield TimestreamFile(fetcher=fetcher)
+            # clean up inotify watcher
+            del inot
+    
+
+
     def from_fofn(self, pathorfile):
         fp = pathorfile
         if not isinstance(pathorfile, io.IOBase):

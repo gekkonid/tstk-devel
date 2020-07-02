@@ -88,8 +88,8 @@ class ResizeImageStep(GenericDownsizerStep):
                                        interpolation=cv2.INTER_LANCZOS4)[:, :, ::-1]  # back to rgb
             elif len(file.pixels.shape) == 2:
                 # handle greyscale images better
-                newpixels = cv2.resize(file.bgr_8, dsize=(cols, rows),
-                                       interpolation=cv2.INTER_LANCZOS4)
+                newpixels = ski.transform.resize(file.pixels, np.round((rows, cols)),
+                                                 order=3, anti_aliasing=True)
 
         return TimestreamImage.from_timestreamfile(file, pixels=newpixels)
 
