@@ -12,7 +12,7 @@ RUN apt update && apt install -y --no-install-recommends libgl-dev libtiff-dev
 COPY . .
 RUN python setup.py install
 
-COPY docker/entrypoint .
+COPY docker/entrypoint /bin/entrypoint
 
 ENV EPHEMERAL="" \
     RESOURCES_OUTPUT="" \
@@ -25,4 +25,4 @@ ENV EPHEMERAL="" \
     TELEGRAF_METRIC="tstk_live_ingest" \
     TELEGRAF_PORT=8092
 
-CMD ["./entrypoint"]
+CMD ["/bin/entrypoint"]
