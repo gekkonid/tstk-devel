@@ -1,19 +1,36 @@
 #!/bin/bash
+ARGS=(
+    --telegraf-host $TELEGRAF_HOST
+    --telegraf-port $TELEGRAF_PORT
+    --telegraf-metric $TELEGRAF_METRIC
+    --output $RESOURCES_OUTPUT
+    --bundle $RESOURCES_BUNDLE
+    --NUKE
+    --inotify-watch $EPHEMERAL
+)
 if [ -n "${INFORMAT:-}" ]
 then
-    fmt="--informat $INFORMAT"
+    ARGS+=(--informat $INFORMAT)
 fi
-set -xe
 
-tstk liveingest  \
-    --telegraf-host $TELEGRAF_HOST \
-    --telegraf-port $TELEGRAF_PORT \
-    --telegraf-metric $TELEGRAF_METRIC \
-    $fmt \
-    --output $RESOURCES_OUTPUT \
-    --bundle $RESOURCES_BUNDLE \
-    --downsized-output $DOWNSIZED_OUTPUT \
-    --downsized-bundle $DOWNSIZED_BUNDLE \
-    --downsized-size $DOWNSIZED_SIZE \
-    --NUKE \
-    --inotify-watch $EPHEMERAL
+if [ -n "${DOWNSIZED_OUTPUT}" ]
+then
+    ARGS+=( \
+        --downsized-output $DOWNSIZED_OUTPUT
+        --downsized-bundle ${DOWNSIZED_BUNDLE:-none}
+        --downsized-size ${DOWNSIZED_SIZE:-720x}
+    )
+fi
+
+if [ -n "${CENTERCROPPED_OUTPUT}" ]
+then
+    ARGS+=( \
+        --centrecropped-output $CENTERCROPPED_OUTPUT 
+        --centrecropped-bundle ${CENTERCROPPED_BUNDLE:-none}
+        --centrecropped-size   ${CENTERCROPPED_SIZE:-720x}
+    )
+fi
+
+set -xeu
+
+tstk liveingest  "${ARGS[@]}"
