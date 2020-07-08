@@ -246,8 +246,14 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
               help="Output a downsized copy of the images here")
 @click.option("--downsized-size", "-S", default='720x',
               help="Downsized output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
-@click.option("--downsized-bundle", "-B", type=Choice(TimeStream.bundle_levels), default="root",
+@click.option("--downsized-bundle", "-B", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle downsized images.")
+@click.option("--centrecropped-output", default=None,
+              help="Output a centrecropped copy of the images here")
+@click.option("--centrecropped-size", default='720x',
+              help="Downsized output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
+@click.option("--centrecropped-bundle", type=Choice(TimeStream.bundle_levels), default="none",
+              help="Level at which to bundle centrecropped images.")
 @click.option("--telegraf-host", default="localhost",
               help="Telegraf reporting host")
 @click.option("--telegraf-port", default=8092,
@@ -256,7 +262,11 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
               help="Telegraf reporting metric name")
 @click.option("--NUKE", is_flag=True, default=False,
               help="DELETE file UNSAFELY as it finishes processsing")
-def liveingest(input, informat, output, bundle, downsized_output, downsized_size, downsized_bundle, telegraf_host, telegraf_port, telegraf_metric, inotify_watch, nuke):
+def liveingest(input, informat, output, bundle, inotify_watch, nuke,
+               downsized_output, downsized_size, downsized_bundle,
+               centrecropped_output, centrecropped_size, centrecropped_bundle,
+               telegraf_host, telegraf_port, telegraf_metric,
+               ):
 
     ints = TimeStream(format=informat)
     outts = TimeStream(output, bundle_level=bundle)
@@ -286,6 +296,16 @@ def liveingest(input, informat, output, bundle, downsized_output, downsized_size
             WriteFileStep(downsized_ts),
         )
         pipe.add_step(TeeStep(downsize_pipeline))
+
+    if centrecropped_output is not None:
+        centrecropped_ts = TimeStream(centrecropped_output, bundle_level=centrecropped_bundle, add_subsecond_field=True)
+        centrecrop_pipeline = TSPipeline(
+            DecodeImageFileStep(),
+            CropCentreStep(geom=centrecropped_size),
+            EncodeImageFileStep(format="jpg"),
+            WriteFileStep(centrecropped_ts),
+        )
+        pipe.add_step(TeeStep(centrecrop_pipeline))
 
     if nuke:
         pipe.add_step(UnsafeNuker())
