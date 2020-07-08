@@ -326,7 +326,7 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
             instream = ints.from_fofn(input)
         for image in instream:
             image = pipe.process_file(image)
-            click.echo(f"{image.instant} Done")
+            click.echo(f"{image.filename} Done")
             pipe.n += 1
     finally:
         pipe.finish()
