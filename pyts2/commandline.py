@@ -270,6 +270,8 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
                centrecropped_output, centrecropped_size, centrecropped_bundle,
                telegraf_host, telegraf_port, telegraf_metric, telegraf_additional_tags,
                ):
+    ifmt = f":{informat}" if informat is not None else ""
+    click.echo(f"Begin live ingest of {ifmt} to {output}...")
 
     ints = TimeStream(format=informat)
     outts = TimeStream(output, bundle_level=bundle)
@@ -330,7 +332,6 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
             pipe.n += 1
     finally:
         pipe.finish()
-        ifmt = f":{informat}" if informat is not None else ""
         click.echo(f"Ingested {input.name}{ifmt} to {output}, found {pipe.n} files")
 
 
