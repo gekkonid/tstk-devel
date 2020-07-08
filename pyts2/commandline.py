@@ -31,6 +31,7 @@ from shlex import quote
 import os
 import shutil
 import sys
+import json
 
 
 def getncpu():
@@ -260,12 +261,14 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
               help="Telegraf reporting port")
 @click.option("--telegraf-metric", default='tstk_live_ingest',
               help="Telegraf reporting metric name")
+@click.option("--telegraf-additional-tags", default=None, type=str,
+              help="Json-coded addition tags that are passed as metric tags.")
 @click.option("--NUKE", is_flag=True, default=False,
               help="DELETE file UNSAFELY as it finishes processsing")
 def liveingest(input, informat, output, bundle, inotify_watch, nuke,
                downsized_output, downsized_size, downsized_bundle,
                centrecropped_output, centrecropped_size, centrecropped_bundle,
-               telegraf_host, telegraf_port, telegraf_metric,
+               telegraf_host, telegraf_port, telegraf_metric, telegraf_additional_tags,
                ):
 
     ints = TimeStream(format=informat)
@@ -273,6 +276,11 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
 
     pipe = TSPipeline()
     pipe.add_step(WriteFileStep(outts))
+
+    if telegraf_additional_tags is not None:
+        telegraf_additional_tags = json.loads(telegraf_additional_tags)
+    else:
+        telegraf_additional_tags = {}
 
     audit_pipe = TSPipeline(
         FileStatsStep(),
@@ -283,6 +291,7 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
             metric_name=telegraf_metric,
             telegraf_host=telegraf_host,
             telegraf_port=telegraf_port,
+            tags=telegraf_additional_tags,
         ),
     )
     pipe.add_step(audit_pipe)
