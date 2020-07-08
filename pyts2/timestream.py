@@ -242,7 +242,13 @@ class TimeStream(object):
         self._instants = {}
         self.name = name
         self.path = None
-        self.format = None
+        if format is not None:
+            format = format.lstrip(".").lower()
+            if format == "tiff":
+                format = "tif"
+            if format == "jpeg":
+                format = "jpg"
+        self.format = format
         self.sorted = True
         self.write_index = write_index
         self.add_subsecond_field = add_subsecond_field
@@ -271,13 +277,6 @@ class TimeStream(object):
             for ext in [".tar", ".zip", f".{format}"]:
                 if self.name.lower().endswith(ext):
                     self.name = self.name[:-len(ext)]
-        if format is not None:
-            format = format.lstrip(".").lower()
-            if format == "tiff":
-                format = "tif"
-            if format == "jpeg":
-                format = "jpg"
-        self.format = format
         self.path = path
 
     def index(self, progress=True):
