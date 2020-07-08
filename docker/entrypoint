@@ -13,6 +13,11 @@ then
     ARGS+=(--informat $INFORMAT)
 fi
 
+if [ -n "TELEGRAF_ADDITIONAL_TAGS" ]
+then
+    ARGS+=(--telegraf-additional-tags "$TELEGRAF_ADDITIONAL_TAGS")
+fi
+
 if [ -n "${DOWNSIZED_OUTPUT}" ]
 then
     ARGS+=( \
