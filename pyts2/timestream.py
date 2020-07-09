@@ -242,7 +242,13 @@ class TimeStream(object):
         self._instants = {}
         self.name = name
         self.path = None
-        self.format = None
+        if format is not None:
+            format = format.lstrip(".").lower()
+            if format == "tiff":
+                format = "tif"
+            if format == "jpeg":
+                format = "jpg"
+        self.format = format
         self.sorted = True
         self.write_index = write_index
         self.add_subsecond_field = add_subsecond_field
@@ -271,13 +277,6 @@ class TimeStream(object):
             for ext in [".tar", ".zip", f".{format}"]:
                 if self.name.lower().endswith(ext):
                     self.name = self.name[:-len(ext)]
-        if format is not None:
-            format = format.lstrip(".").lower()
-            if format == "tiff":
-                format = "tif"
-            if format == "jpeg":
-                format = "jpg"
-        self.format = format
         self.path = path
 
     def index(self, progress=True):
@@ -348,6 +347,8 @@ class TimeStream(object):
                 path = op.join(root, file)
                 if not op.exists(path):
                     continue
+                if file.startswith('.'):
+                    continue
                 if not path_is_timestream_file(path, extensions=self.format):
                     continue
                 fetcher = FileContentFetcher(path)
@@ -368,9 +369,7 @@ class TimeStream(object):
                     if 'IN_ISDIR' in type_names or  not 'IN_CLOSE_WRITE' in type_names and not 'IN_MOVED_TO' in type_names:
                         continue
                     path = op.join(path, filename)
-                    if not op.exists(path):
-                        continue
-                    if not path_is_timestream_file(path, extensions=self.format):
+                    if filename.startswith('.') or not op.exists(path) or not path_is_timestream_file(path, extensions=self.format):
                         continue
                     fetcher = FileContentFetcher(path)
                     self._files[fetcher.filename] = fetcher
