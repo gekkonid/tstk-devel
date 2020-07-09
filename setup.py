@@ -34,7 +34,7 @@ setup(
     ''',
     author="Kevin Murray",
     author_email="foss@kdmurray.id.au",
-    url="https://github.com/appf-anu/timestream2",
+    url="https://gitlab.com/appf-anu/pyts2",
     keywords=["timestream", "timelapse", "photography", "video"],
     classifiers=[
         "Programming Language :: Python",
