@@ -288,6 +288,7 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
         FileStatsStep(),
         DecodeImageFileStep(),
         ImageMeanColourStep(),
+        CalculateEVStep(),
         ScanQRCodesStep(),
         TelegrafRecordStep(
             metric_name=telegraf_metric,
