@@ -12,7 +12,7 @@ class TelegrafRecordStep(PipelineStep):
     def __init__(self, metric_name, telegraf_host='localhost', telegraf_port=8092, tags={}):
         self.client = TelegrafClient(host=telegraf_host, port=telegraf_port)
         self.metric_name = metric_name
-        self.tags = {}
+        self.tags = tags
 
     def process_file(self, file):
         fileext = splitext(file.filename)[1].lower().lstrip(".")
