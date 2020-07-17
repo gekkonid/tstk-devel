@@ -91,3 +91,55 @@ class VideoEncoder(PipelineStep):
     def finish(self):
         self.ffmpeg.stdin.close()
         self.ffmpeg.wait()
+
+
+
+def getsegment(date, segmented_by):
+    if segmented_by == "year":
+        return date.strftime("%Y")
+    elif segmented_by == "month":
+        return date.strftime("%Y_%m")
+    elif segmented_by == "day":
+        return date.strftime("%Y_%m_%d")
+    else:
+        raise ValueError(f"Unsupported segmented_by: {segmented_by}")
+
+class SegementedVideoEncoder(PipelineStep):
+    def __init__(self, outprefix, segmented_by="month", ffmpeg_args=None, ffmpeg_path="ffmpeg", rate=10, threads=1, scaling=None):
+        if ffmpeg_args is None:
+            ffmpeg_args = get_default_ffmpeg_cmd(rate=rate, threads=threads, scaling=scaling)
+
+        self.outprefix = outprefix
+        self.ffmpeg_base_command = ffmpeg_path + ' ' + ffmpeg_args
+        self.segmented_by = segmented_by
+        self.ffmpeg = None
+        self.lastsegment = None
+
+    def process_file(self, file):
+        if not hasattr(file, "pixels"):
+            file = DecodeImageFileStep().process_file(file)
+            if file is None:
+                return None
+
+        thisseg = getsegment(file.instant.datetime, self.segmented_by)
+        try:
+            if thisseg != self.lastsegment:
+                self.lastsegment = thisseg
+                if self.ffmpeg is not None:
+                    self.ffmpeg.stdin.close()
+                    self.ffmpeg.wait()
+                ffmpeg_cmd = f"{self.ffmpeg_base_command} {self.outprefix}_{thisseg}.mp4"
+                self.ffmpeg = subprocess.Popen(ffmpeg_cmd, shell=True,
+                        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT)
+            self.ffmpeg.stdin.write(file.content)
+        except Exception as exc:
+            print(str(exc))
+            log=self.ffmpeg.stdout.read()
+            raise FatalPipelineError(f"FFMPEG failed, log follows\n{log}")
+        return file
+
+    def finish(self):
+        if self.ffmpeg is not None:
+            self.ffmpeg.stdin.close()
+            self.ffmpeg.wait()

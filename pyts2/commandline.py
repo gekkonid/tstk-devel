@@ -619,6 +619,8 @@ def findpairs(input, rm_script, move_dest, force_delete):
 @tstk_main.command()
 @click.option("--output", "-o", type=Path(writable=True),
               help="Output video file name")
+@click.option("--segmented-by", default=None, type=Choice(("year", "month", "day")),
+              help="Produce one video per time segment (year/month/day). --output is then a prefix.")
 @click.option("--ffmpeg-path", "-b", default="ffmpeg",
               help="ffmpeg command/path")
 @click.option("--ffmpeg-args", default=None,
@@ -633,10 +635,10 @@ def findpairs(input, rm_script, move_dest, force_delete):
 @click.option("--informat", "-F", default=None,
               help="Input image format (use extension as lower case for raw formats)")
 @click.argument("input")
-def video(input, output, ffmpeg_path, ffmpeg_args, framerate, scaling, ncpus, informat):
+def video(input, output, ffmpeg_path, ffmpeg_args, framerate, scaling, ncpus, informat, segmented_by):
     """Creates a standard timelapse video from timestream"""
 
-    from pyts2.pipeline.video import VideoEncoder, ImageWatermarker
+    from pyts2.pipeline.video import VideoEncoder, ImageWatermarker, SegementedVideoEncoder
 
     # ffmpeg_command = ffmpeg_path+' '+ffmpeg_arg
     ints = TimeStream(input, format=informat)
@@ -644,9 +646,17 @@ def video(input, output, ffmpeg_path, ffmpeg_args, framerate, scaling, ncpus, in
         DecodeImageFileStep(),
         ImageWatermarker(),
         EncodeImageFileStep(format="jpg"),
-        VideoEncoder(output, ffmpeg_args=ffmpeg_args, ffmpeg_path=ffmpeg_path,
-            rate=framerate, threads=ncpus, scaling=scaling),
     )
+    if segmented_by is None:
+        pipe.add_step(
+            VideoEncoder(output, ffmpeg_args=ffmpeg_args, ffmpeg_path=ffmpeg_path,
+                rate=framerate, threads=ncpus, scaling=scaling),
+        )
+    else:
+        pipe.add_step(
+            SegementedVideoEncoder(output, segmented_by=segmented_by, ffmpeg_args=ffmpeg_args, ffmpeg_path=ffmpeg_path,
+                rate=framerate, threads=ncpus, scaling=scaling),
+        )
     try:
         for image in pipe.process(ints, ncpus=1):
             pass
