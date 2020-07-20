@@ -256,7 +256,7 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
               help="Downsized output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
 @click.option("--downsized-bundle", "--db", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle downsized images.")
-@click.option("--centrecropped-output", "--co" default=None,
+@click.option("--centrecropped-output", "--co", default=None,
               help="Output a centrecropped copy of the images here")
 @click.option("--centrecropped-size", "--cs", default='720x',
               help="Downsized output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
