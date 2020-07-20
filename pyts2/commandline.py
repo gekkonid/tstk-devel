@@ -329,8 +329,9 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke, min_mean_lu
         )
         pipe.add_step(TeeStep(centrecrop_pipeline))
 
-    pipe.add_step(FilterStep(callback=lambda x: x.report["ImageMean_L"] > min_mean_luminance,
-                             message="Image has low luminance, probable nighttime image. Skipping."))
+    if min_mean_luminance is not None:
+        pipe.add_step(FilterStep(callback=lambda x: x.report["ImageMean_L"] > min_mean_luminance,
+                                 message="Image has low luminance, probable nighttime image. Skipping."))
     pipe.add_step(WriteFileStep(outts))
 
     if recoded_output is not None:

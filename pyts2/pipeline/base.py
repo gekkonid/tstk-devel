@@ -69,7 +69,7 @@ class TSPipeline(object):
                     traceback.print_exc(file=stderr)
                 file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
                 self.report.record(file.instant, **file.report)
-                if isinstance(FatalPipelineError, exc):
+                if isinstance(exc, FatalPipelineError):
                     raise
         self.report.record(file.instant, **file.report)
         return file
