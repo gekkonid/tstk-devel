@@ -43,8 +43,6 @@ class ImageWatermarker(PipelineStep):
     def process_file(self, file):
         if not hasattr(file, "pixels"):
             file = DecodeImageFileStep().process_file(file)
-            if file is None:
-                return None
         image = file.pil
 
         text = self.textcallback(file)
@@ -79,8 +77,6 @@ class VideoEncoder(PipelineStep):
     def process_file(self, file):
         if not hasattr(file, "pixels"):
             file = DecodeImageFileStep().process_file(file)
-            if file is None:
-                return None
         try:
             self.ffmpeg.stdin.write(file.content)
         except BrokenPipeError as exc:
@@ -93,7 +89,6 @@ class VideoEncoder(PipelineStep):
         self.ffmpeg.wait()
 
 
-
 def getsegment(date, segmented_by):
     if segmented_by == "year":
         return date.strftime("%Y")
@@ -103,6 +98,7 @@ def getsegment(date, segmented_by):
         return date.strftime("%Y_%m_%d")
     else:
         raise ValueError(f"Unsupported segmented_by: {segmented_by}")
+
 
 class SegementedVideoEncoder(PipelineStep):
     def __init__(self, outprefix, segmented_by="month", ffmpeg_args=None, ffmpeg_path="ffmpeg", rate=10, threads=1, scaling=None):
@@ -118,8 +114,6 @@ class SegementedVideoEncoder(PipelineStep):
     def process_file(self, file):
         if not hasattr(file, "pixels"):
             file = DecodeImageFileStep().process_file(file)
-            if file is None:
-                return None
 
         thisseg = getsegment(file.instant.datetime, self.segmented_by)
         try:

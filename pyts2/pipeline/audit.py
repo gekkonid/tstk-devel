@@ -26,6 +26,7 @@ class ImageMeanColourStep(PipelineStep):
     def process_file(self, file):
         assert hasattr(file, "pixels")  # TODO proper check
         pix = file.pixels
+        file.report.update({"ImageMean": pix.mean()})
         if len(pix.shape) == 2:  # Greyscale
             meancol = pix.mean()
             file.report.update({"ImageMean_Grey": meancol})

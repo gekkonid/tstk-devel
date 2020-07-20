@@ -98,6 +98,7 @@ def bundle(force, informat, bundle, input, output):
               help="Telegraf reporting metric name")
 @click.argument("input")
 def audit(input, output, telegraf_host, telegraf_port, telegraf_metric, ncpus=1, informat=None):
+    from pyts2.pipeline.telegraf import TelegrafRecordStep
     if output is None and telegraf_host is None:
         print("ERROR: must give one of --output or --telegraf-host")
         sys.exit(1)
@@ -243,18 +244,26 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
               help="Archival bundled TimeStream")
 @click.option("--bundle", "-b", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle files.")
-@click.option("--downsized-output", "-s", default=None,
+@click.option("--recoded-output", "--ro", type=str, default=None,
+              help="Output timestream for recoded import images")
+@click.option("--recoded-format", "--rf", type=str, default=None,
+              help="File format of  images")
+@click.option("--recoded-bundle", "--rb", type=Choice(TimeStream.bundle_levels), default="none",
+              help="Level at which to bundle recoded images")
+@click.option("--downsized-output", "--do", default=None,
               help="Output a downsized copy of the images here")
-@click.option("--downsized-size", "-S", default='720x',
+@click.option("--downsized-size", "--ds", default='720x',
               help="Downsized output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
-@click.option("--downsized-bundle", "-B", type=Choice(TimeStream.bundle_levels), default="none",
+@click.option("--downsized-bundle", "--db", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle downsized images.")
-@click.option("--centrecropped-output", default=None,
+@click.option("--centrecropped-output", "--co" default=None,
               help="Output a centrecropped copy of the images here")
-@click.option("--centrecropped-size", default='720x',
+@click.option("--centrecropped-size", "--cs", default='720x',
               help="Downsized output size. Use ROWSxCOLS. One of ROWS or COLS can be omitted to keep aspect ratio.")
-@click.option("--centrecropped-bundle", type=Choice(TimeStream.bundle_levels), default="none",
+@click.option("--centrecropped-bundle", "--cb", type=Choice(TimeStream.bundle_levels), default="none",
               help="Level at which to bundle centrecropped images.")
+@click.option("--min-mean-luminance", "--ml", type=float, default=None,
+              help="Don't keep originals with mean luminance < X. (black = 0 <= L <= 100 = white).")
 @click.option("--telegraf-host", default="localhost",
               help="Telegraf reporting host")
 @click.option("--telegraf-port", default=8092,
@@ -265,44 +274,45 @@ def ingest(input, informat, output, bundle, ncpus, downsized_output, downsized_s
               help="Json-coded addition tags that are passed as metric tags.")
 @click.option("--NUKE", is_flag=True, default=False,
               help="DELETE file UNSAFELY as it finishes processsing")
-def liveingest(input, informat, output, bundle, inotify_watch, nuke,
+@click.option("--truncate-time", type=str, default=None, metavar="TIME",
+              help="Truncate time to TIME")
+def liveingest(input, informat, output, bundle, inotify_watch, nuke, min_mean_luminance, truncate_time,
                downsized_output, downsized_size, downsized_bundle,
+               recoded_output, recoded_format, recoded_bundle,
                centrecropped_output, centrecropped_size, centrecropped_bundle,
                telegraf_host, telegraf_port, telegraf_metric, telegraf_additional_tags,
                ):
-    ifmt = f":{informat}" if informat is not None else ""
+    from pyts2.pipeline.telegraf import TelegrafRecordStep
+    ifmt = f"{informat}s" if informat is not None else "images"
     click.echo(f"Begin live ingest of {ifmt} to {output}...")
 
-    ints = TimeStream(format=informat)
-    outts = TimeStream(output, bundle_level=bundle)
-
-    pipe = TSPipeline()
-    pipe.add_step(WriteFileStep(outts))
 
     if telegraf_additional_tags is not None:
         telegraf_additional_tags = json.loads(telegraf_additional_tags)
     else:
         telegraf_additional_tags = {}
 
-    audit_pipe = TSPipeline(
-        FileStatsStep(),
-        DecodeImageFileStep(),
-        ImageMeanColourStep(),
-        CalculateEVStep(),
-        ScanQRCodesStep(),
-        TelegrafRecordStep(
-            metric_name=telegraf_metric,
-            telegraf_host=telegraf_host,
-            telegraf_port=telegraf_port,
-            tags=telegraf_additional_tags,
-        ),
-    )
-    pipe.add_step(audit_pipe)
+    ints = TimeStream(format=informat)
+    outts = TimeStream(output, bundle_level=bundle)
 
+    pipe = TSPipeline()
+
+    pipe.add_step(FileStatsStep())
+    pipe.add_step(DecodeImageFileStep())
+    pipe.add_step(ImageMeanColourStep())
+    pipe.add_step(CalculateEVStep())
+    pipe.add_step(ScanQRCodesStep())
+
+    pipe.add_step(TelegrafRecordStep(
+        metric_name=telegraf_metric,
+        telegraf_host=telegraf_host,
+        telegraf_port=telegraf_port,
+        tags=telegraf_additional_tags,
+    ))
+    
     if downsized_output is not None:
         downsized_ts = TimeStream(downsized_output, bundle_level=downsized_bundle, add_subsecond_field=True)
         downsize_pipeline = TSPipeline(
-            DecodeImageFileStep(),
             ResizeImageStep(geom=downsized_size),
             EncodeImageFileStep(format="jpg"),
             WriteFileStep(downsized_ts),
@@ -319,6 +329,19 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
         )
         pipe.add_step(TeeStep(centrecrop_pipeline))
 
+    pipe.add_step(FilterStep(callback=lambda x: x.report["ImageMean_L"] > min_mean_luminance,
+                             message="Image has low luminance, probable nighttime image. Skipping."))
+    pipe.add_step(WriteFileStep(outts))
+
+    if recoded_output is not None:
+        recoded_ts = TimeStream(recoded_output, bundle_level=recoded_bundle, add_subsecond_field=True)
+        recode_pipeline = TSPipeline(
+            EncodeImageFileStep(format=recoded_format),
+            WriteFileStep(downsized_ts),
+        )
+        pipe.add_step(TeeStep(recode_pipeline))
+
+
     if nuke:
         pipe.add_step(UnsafeNuker())
 
@@ -333,7 +356,7 @@ def liveingest(input, informat, output, bundle, inotify_watch, nuke,
             pipe.n += 1
     finally:
         pipe.finish()
-        click.echo(f"Ingested {input.name}{ifmt} to {output}, found {pipe.n} files")
+        click.echo(f"Ingested {ifmt} to {output}, found {pipe.n} files")
 
 
 @tstk_main.command()
@@ -637,10 +660,8 @@ def findpairs(input, rm_script, move_dest, force_delete):
 @click.argument("input")
 def video(input, output, ffmpeg_path, ffmpeg_args, framerate, scaling, ncpus, informat, segmented_by):
     """Creates a standard timelapse video from timestream"""
-
     from pyts2.pipeline.video import VideoEncoder, ImageWatermarker, SegementedVideoEncoder
 
-    # ffmpeg_command = ffmpeg_path+' '+ffmpeg_arg
     ints = TimeStream(input, format=informat)
     pipe = TSPipeline(
         DecodeImageFileStep(),

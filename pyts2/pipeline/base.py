@@ -28,6 +28,9 @@ csv.register_dialect('tsv',
 class FatalPipelineError(Exception):
     pass
 
+class AbortPipelineForThisImage(Exception):
+    pass
+
 class TSPipeline(object):
     def __init__(self, *args, reporter=None):
         self.retcode = 0 
@@ -52,29 +55,23 @@ class TSPipeline(object):
             file.report["Errors"] = None
             try:
                 file = step.process_file(file)
-            except FatalPipelineError as exc:
-                if file is not None:
-                    path = file.filename
-                    if hasattr(file.fetcher, "pathondisk"):
-                        path = file.fetcher.pathondisk
-                    print(f"\n{exc.__class__.__name__}: {str(exc)} while processing '{path}'\n", file=stderr)
-                    if stderr.isatty():
-                        traceback.print_exc(file=stderr)
-                    file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
-                    self.report.record(file.instant, **file.report)
-                raise
-            except Exception as exc:
-                if file is not None:
-                    path = file.filename
-                    if hasattr(file.fetcher, "pathondisk"):
-                        path = file.fetcher.pathondisk
-                    print(f"\n{exc.__class__.__name__}: {str(exc)} while processing '{path}'\n", file=stderr)
-                    if stderr.isatty():
-                        traceback.print_exc(file=stderr)
-                    file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
+                assert file is not None
+            except AbortPipelineForThisImage as exc:
+                file.report.update({"PipelineAbortedMessage": str(exc)})
+                print(f"\nAborting at {step.__class__.__name__}: {str(exc)}", file=stderr)
                 break
-        if file is not None:
-            self.report.record(file.instant, **file.report)
+            except Exception as exc:
+                path = file.filename
+                if hasattr(file.fetcher, "pathondisk"):
+                    path = file.fetcher.pathondisk
+                print(f"\n{exc.__class__.__name__}: {str(exc)} while processing '{path}'\n", file=stderr)
+                if stderr.isatty():
+                    traceback.print_exc(file=stderr)
+                file.report["Errors"] = f"{exc.__class__.__name__}: {str(exc)}"
+                self.report.record(file.instant, **file.report)
+                if isinstance(FatalPipelineError, exc):
+                    raise
+        self.report.record(file.instant, **file.report)
         return file
 
     def process(self, input_stream, ncpus=1, progress=True):
@@ -256,4 +253,15 @@ class FileStatsStep(PipelineStep):
     def process_file(self, file):
         file.report.update({"FileName": op.basename(file.filename),
                             "FileSize": len(file.content)})
+        return file
+
+
+class FilterStep(PipelineStep):
+    def __init__(self, callback, message="Filter excluded image"):
+        self.callback = callback
+        self.message = message
+
+    def process_file(self, file):
+        if not self.callback(file)
+            raise AbortPipelineForThisImage(self.message)
         return file
