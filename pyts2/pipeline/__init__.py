@@ -11,6 +11,7 @@ from .base import (
     ResultRecorderStep,
     FileStatsStep,
     TeeStep,
+    FilterStep,
 )
 from .audit import (
     ImageMeanColourStep,
@@ -28,7 +29,6 @@ from .imageio import (
     EncodeImageFileStep,
 )
 from .rmscript import WriteRmScriptStep
-from .telegraf import TelegrafRecordStep
 from .verify import UnsafeNuker
 
 __all__ = [
@@ -39,6 +39,7 @@ __all__ = [
     "ResultRecorderStep",
     "FileStatsStep",
     "TeeStep",
+    "FilterStep",
     "ImageMeanColourStep",
     "ScanQRCodesStep",
     "CalculateEVStep",
@@ -49,6 +50,5 @@ __all__ = [
     "EncodeImageFileStep",
     "TruncateTimeStep",
     "WriteRmScriptStep",
-    "TelegrafRecordStep",
     "UnsafeNuker",
 ]
