@@ -1,4 +1,10 @@
 #!/bin/bash
+if [ ! -d $EPHEMERAL ]
+then
+	echo "Warning: creating ephemeral ingest directory '$EPHEMERAL'" >&2
+	mkdir -p $EPHEMERAL
+fi
+
 ARGS=(
     --telegraf-host $TELEGRAF_HOST
     --telegraf-port $TELEGRAF_PORT
@@ -24,6 +30,20 @@ then
         --downsized-output $DOWNSIZED_OUTPUT
         --downsized-bundle ${DOWNSIZED_BUNDLE:-none}
         --downsized-size ${DOWNSIZED_SIZE:-720x}
+    )
+fi
+
+if [ -n "${MIN_MEAN_LUMINANCE}" ]
+then
+    ARGS+=( --min-mean-luminance ${MIN_MEAN_LUMINANCE} )
+fi
+
+if [ -n "${RECODED_OUTPUT}" ]
+then
+    ARGS+=( \
+        --recoded-output $RECODED_OUTPUT
+        --recoded-bundle ${RECODED_BUNDLE:-none}
+        --recoded-format ${RECODED_FORMAT:-jpg}
     )
 fi
 

@@ -23,6 +23,7 @@ ENV EPHEMERAL="" \
     INFORMAT="jpg" \
     TELEGRAF_HOST="localhost" \
     TELEGRAF_METRIC="tstk_live_ingest" \
-    TELEGRAF_PORT=8092
+    TELEGRAF_PORT=8092 \
+    TZ="Australia/Canberra"
 
 CMD ["/bin/entrypoint"]
