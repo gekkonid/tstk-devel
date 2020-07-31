@@ -3,6 +3,7 @@ from .base import PipelineStep
 
 import os
 from os.path import splitext
+from datetime import datetime
 
 from telegraf.client import TelegrafClient
 import pytz
@@ -26,6 +27,9 @@ class TelegrafRecordStep(PipelineStep):
         dt = self.localtz.localize(file.instant.datetime)
         utc = dt.astimezone(pytz.utc)
         epoch_ns = int(utc.timestamp() * 1e9) # to NS
-        self.client.metric(self.metric_name, file.report, timestamp=epoch_ns, tags=tags)
+        now_ns = int(datetime.utcnow().timestamp() * 1e9)
+        report = file.report
+        report.update({"CapturedAt": epoch_ns, "ProcessedAt":now_ns})
+        self.client.metric(self.metric_name, report, timestamp=epoch_ns, tags=tags)
         return file
 
